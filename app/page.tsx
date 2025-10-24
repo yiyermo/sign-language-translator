@@ -1,81 +1,150 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Camera, CameraOff, RotateCcw, Volume2, Hand, Type } from "lucide-react"
+import { useEffect, useRef } from "react"
 
-export default function SignLanguageTranslator() {
-  const [mode, setMode] = useState<"signs-to-text" | "text-to-signs">("signs-to-text")
-  const [isRecording, setIsRecording] = useState(false)
-  const [translatedText, setTranslatedText] = useState("")
-  const [inputText, setInputText] = useState("")
-  const [cameraPermission, setCameraPermission] = useState<"granted" | "denied" | "pending">("pending")
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+import { useTranslatorState } from "@/hooks/useTranslatorState"
+import { useCamera } from "@/hooks/useCamera"
+import { useSpeech } from "@/hooks/useSpeech"
+import { useSignToText } from "@/hooks/useSignToText"
+import { useFingerspelling } from "@/hooks/useFingerspelling"
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user",
-        },
-      })
+import ModeToggle from "@/components/translator/ModeToggle"
+import CameraSection from "@/components/translator/CameraSection"
+import ResultsSection from "@/components/translator/ResultsSection"
+import StatusBar from "@/components/translator/StatusBar"
+import Instructions from "@/components/translator/Instructions"
+import FingerspellingTrainer from "@/components/translator/FingerspellingTrainer"
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        streamRef.current = stream
-        setCameraPermission("granted")
-        setIsRecording(true)
-      }
-    } catch (error) {
-      console.error("[v0] Error accessing camera:", error)
-      setCameraPermission("denied")
-    }
-  }
+export default function SignLanguageTranslatorPage() {
+  const {
+    mode,
+    setMode,
+    translatedText,
+    setTranslatedText,
+    inputText,
+    setInputText,
+    clearTranslation,
+  } = useTranslatorState()
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-    setIsRecording(false)
-  }
+  const { videoRef, cameraPermission, isRecording, startCamera, stopCamera } = useCamera()
+  const { speak } = useSpeech()
 
-  const simulateTranslation = () => {
-    if (mode === "signs-to-text") {
-      setTranslatedText("Hola, ¿cómo estás? Me alegra verte.")
-    } else {
-      // En modo texto a señas, simularíamos mostrar las señas
-      setTranslatedText('Mostrando secuencia de señas para: "' + inputText + '"')
-    }
-  }
+  const {
+    labels,
+    addExample,
+    predictStable,
+    save: saveFS,
+    reset: resetFS,
+  } = useFingerspelling()
 
-  const clearTranslation = () => {
-    setTranslatedText("")
-    setInputText("")
-  }
+  const { start, stop, pushLetter } = useSignToText({
+    onShortcut: (w) => {
+      setTranslatedText((prev) => (prev ? `${prev} ${w}` : w))
+    },
+    onWord: (w) => {
+      if (!w.trim()) return
+      const fixed = autocorrectSpanish(w)
+      setTranslatedText((prev) => (prev ? `${prev} ${fixed}` : fixed))
+    },
+  })
 
-  const speakText = () => {
-    if (translatedText && "speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(translatedText)
-      utterance.lang = "es-ES"
-      speechSynthesis.speak(utterance)
-    }
-  }
+  // ---------- Estabilización adicional en UI ----------
+  const lastCharAtRef = useRef<number>(0)
+  const lastCharRef = useRef<string>("")
+  const LETTER_COOLDOWN_MS = 220
 
+  // Control para no mezclar recolección de ejemplos y predicción
+  const isCollectingRef = useRef<boolean>(false)
+
+  // Cola de “peticiones de recolección” atendidas en el streaming
+  const onCollectRequest = useRef<string[]>([])
+
+  // ---------- Registro estable del stream de frames ----------
   useEffect(() => {
-    return () => {
-      stopCamera()
+    if (typeof window === "undefined") return
+
+    // Registramos exactamente una función estable para el stream
+    // @ts-ignore
+    window.__FS_STREAM__ = {
+      onFrame: (lm: any[] | null) => {
+        if (!lm || lm.length < 21) return
+
+        // 1) ¿Recolección de ejemplos solicitada?
+        const req = onCollectRequest.current.shift()
+        if (req) {
+          isCollectingRef.current = true
+          addExample(req, lm as any)
+          // breve descanso para no mezclar con predicción
+          setTimeout(() => { isCollectingRef.current = false }, 120)
+        }
+
+        // 2) Predicción (si no estamos recolectando)
+        if (!isCollectingRef.current) {
+          // Nota: si tu predictStable entrega 'confidence', la usamos; si no, se ignora.
+          predictStable(lm as any, (ch: string, confidence?: number) => {
+            const now = performance.now()
+
+            if (typeof confidence === "number" && confidence < 0.8) return
+
+            // Antirebote: evita repetir la misma letra en una ventana corta
+            if (ch === lastCharRef.current && (now - lastCharAtRef.current) < LETTER_COOLDOWN_MS) {
+              return
+            }
+
+            lastCharRef.current = ch
+            lastCharAtRef.current = now
+
+            pushLetter(ch)
+            setTranslatedText((prev) => (prev ? `${prev}${ch}` : ch))
+          })
+        }
+      }
     }
-  }, [])
+
+    // Limpieza segura al desmontar
+    return () => {
+      // @ts-ignore
+      if (window.__FS_STREAM__) {
+        // @ts-ignore
+        window.__FS_STREAM__.onFrame = () => {}
+      }
+    }
+  }, [addExample, predictStable, pushLetter, setTranslatedText])
+
+  // ---------- Entrenamiento: recolección programada de ejemplos ----------
+  const scheduleAdd = (label: string) => {
+    let left = 5
+    isCollectingRef.current = true
+    const id = setInterval(() => {
+      onCollectRequest.current.push(label)
+      left--
+      if (left <= 0) {
+        clearInterval(id)
+        // pequeño respiro para no mezclar con predicción
+        setTimeout(() => { isCollectingRef.current = false }, 150)
+      }
+    }, 120)
+  }
+
+  // ---------- Cámara ----------
+  const onToggleCamera = async () => {
+    try {
+      if (isRecording) {
+        stop()
+        await stopCamera()
+        return
+      }
+      await startCamera()
+      if (videoRef.current) {
+        await start(videoRef.current)
+        // reinicia estabilizadores para una nueva sesión
+        lastCharRef.current = ""
+        lastCharAtRef.current = 0
+      }
+    } catch (e) {
+      console.error("Error al iniciar/detener cámara", e)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -85,226 +154,83 @@ export default function SignLanguageTranslator() {
           <h1 className="text-3xl md:text-4xl font-heading font-bold text-foreground">
             Traductor de Lenguaje de Señas
           </h1>
-          <p className="text-muted-foreground text-lg">Traduce entre lenguaje de señas español castellano y texto</p>
+          <p className="text-muted-foreground text-lg">
+            Señas → Texto usando dactilología (alfabeto manual) + atajos
+          </p>
         </div>
 
-        {/* Mode Toggle */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-              <Button
-                variant={mode === "signs-to-text" ? "default" : "outline"}
-                size="lg"
-                onClick={() => setMode("signs-to-text")}
-                className="w-full sm:w-auto min-h-[60px] text-lg"
-              >
-                <Hand className="mr-2 h-6 w-6" />
-                Señas a Texto
-              </Button>
-              <div className="text-muted-foreground">
-                <RotateCcw className="h-5 w-5" />
-              </div>
-              <Button
-                variant={mode === "text-to-signs" ? "default" : "outline"}
-                size="lg"
-                onClick={() => setMode("text-to-signs")}
-                className="w-full sm:w-auto min-h-[60px] text-lg"
-              >
-                <Type className="mr-2 h-6 w-6" />
-                Texto a Señas
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ModeToggle
+          mode={mode}
+          onChange={async (m) => {
+            // Al salir de "signs-to-text", apagar captura y limpiar estabilizadores
+            if (mode === "signs-to-text") {
+              stop()
+              if (isRecording) await stopCamera()
+              lastCharRef.current = ""
+              lastCharAtRef.current = 0
+            }
+            setMode(m)
+          }}
+        />
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Camera/Input Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading flex items-center gap-2">
-                {mode === "signs-to-text" ? (
-                  <>
-                    <Camera className="h-5 w-5" />
-                    Cámara - Lenguaje de Señas
-                  </>
-                ) : (
-                  <>
-                    <Type className="h-5 w-5" />
-                    Texto a Traducir
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mode === "signs-to-text" ? (
-                <div className="space-y-4">
-                  <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    {!isRecording && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                        <div className="text-center space-y-2">
-                          <Camera className="h-12 w-12 mx-auto text-muted-foreground" />
-                          <p className="text-muted-foreground">Cámara desactivada</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          {mode === "signs-to-text" ? (
+            <CameraSection
+              mode="signs-to-text"
+              videoRef={videoRef}
+              isRecording={isRecording}
+              cameraPermission={cameraPermission}
+              onToggleCamera={onToggleCamera}
+            />
+          ) : (
+            <CameraSection
+              mode="text-to-signs"
+              inputText={inputText}
+              onInputChange={setInputText}
+              onTranslate={() => {
+                const txt = inputText.trim()
+                if (!txt) return
+                setTranslatedText(`Mostrando secuencia de señas para: "${txt}"`)
+              }}
+            />
+          )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={isRecording ? stopCamera : startCamera}
-                      variant={isRecording ? "destructive" : "default"}
-                      size="lg"
-                      className="flex-1 min-h-[50px]"
-                    >
-                      {isRecording ? (
-                        <>
-                          <CameraOff className="mr-2 h-5 w-5" />
-                          Detener Cámara
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="mr-2 h-5 w-5" />
-                          Activar Cámara
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={simulateTranslation}
-                      disabled={!isRecording}
-                      size="lg"
-                      variant="secondary"
-                      className="min-h-[50px]"
-                    >
-                      Traducir
-                    </Button>
-                  </div>
-
-                  {cameraPermission === "denied" && (
-                    <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                      <p className="text-destructive text-sm">
-                        No se pudo acceder a la cámara. Por favor, permite el acceso a la cámara en tu navegador.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Textarea
-                    placeholder="Escribe el texto que quieres traducir a lenguaje de señas..."
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    className="min-h-[200px] text-lg"
-                  />
-
-                  <Button
-                    onClick={simulateTranslation}
-                    disabled={!inputText.trim()}
-                    size="lg"
-                    className="w-full min-h-[50px]"
-                  >
-                    <Hand className="mr-2 h-5 w-5" />
-                    Mostrar en Señas
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Translation Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading flex items-center gap-2">
-                {mode === "signs-to-text" ? (
-                  <>
-                    <Type className="h-5 w-5" />
-                    Texto Traducido
-                  </>
-                ) : (
-                  <>
-                    <Hand className="h-5 w-5" />
-                    Señas Generadas
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="min-h-[200px] p-4 bg-muted rounded-lg">
-                {translatedText ? (
-                  <p className="text-lg leading-relaxed">{translatedText}</p>
-                ) : (
-                  <p className="text-muted-foreground text-center">
-                    {mode === "signs-to-text" ? "La traducción aparecerá aquí..." : "Las señas se mostrarán aquí..."}
-                  </p>
-                )}
-              </div>
-
-              {translatedText && (
-                <div className="flex gap-2">
-                  <Button
-                    onClick={speakText}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 min-h-[50px] bg-transparent"
-                  >
-                    <Volume2 className="mr-2 h-5 w-5" />
-                    Reproducir Audio
-                  </Button>
-
-                  <Button
-                    onClick={clearTranslation}
-                    variant="outline"
-                    size="lg"
-                    className="min-h-[50px] bg-transparent"
-                  >
-                    <RotateCcw className="mr-2 h-5 w-5" />
-                    Limpiar
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ResultsSection
+            mode={mode}
+            text={translatedText}
+            onSpeak={() => speak(translatedText, "es-CL")}
+            onClear={() => {
+              stop()
+              lastCharRef.current = ""
+              lastCharAtRef.current = 0
+              clearTranslation()
+            }}
+          />
         </div>
 
-        {/* Status Indicators */}
-        <div className="flex flex-wrap gap-2 justify-center">
-          <Badge variant={isRecording ? "default" : "secondary"}>
-            {isRecording ? "Cámara Activa" : "Cámara Inactiva"}
-          </Badge>
-          <Badge variant="outline">Modo: {mode === "signs-to-text" ? "Señas → Texto" : "Texto → Señas"}</Badge>
-          <Badge variant="outline">Idioma: Español Castellano</Badge>
-        </div>
+        {mode === "signs-to-text" && (
+          <FingerspellingTrainer
+            onAdd={scheduleAdd}
+            labels={labels}
+            onSave={saveFS}
+            onReset={() => {
+              resetFS()
+              lastCharRef.current = ""
+              lastCharAtRef.current = 0
+              clearTranslation()
+            }}
+          />
+        )}
 
-        {/* Instructions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Instrucciones de Uso</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Señas a Texto:</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• Activa la cámara</li>
-                  <li>• Posiciónate frente a la cámara</li>
-                  <li>• Realiza las señas claramente</li>
-                  <li>• Presiona "Traducir" para obtener el texto</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Texto a Señas:</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• Escribe el texto a traducir</li>
-                  <li>• Presiona "Mostrar en Señas"</li>
-                  <li>• Observa la secuencia de señas</li>
-                  <li>• Usa el audio para practicar</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatusBar isRecording={isRecording} mode={mode} />
+        <Instructions />
       </div>
     </div>
   )
+}
+
+// Heurística simple para tildes comunes (muy básica)
+function autocorrectSpanish(word: string) {
+  // puedes enriquecer con un diccionario o LM
+  return word
 }
