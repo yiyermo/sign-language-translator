@@ -1,14 +1,18 @@
 "use client"
 
-import { useCallback, useState, useRef } from "react"
-import type { HandLandmarks } from "@/hooks/useFingerspelling"
+import { useCallback, useState, useRef, useEffect } from "react"
+import * as tf from "@tensorflow/tfjs"
 
 type UseSignToTextOptions = {
   onWord?: (word: string) => void
   onLetter?: (ch: string) => void
-  // atajos tipo gesto→palabra ("HOLA", "OK", "GRACIAS")
-  onShortcut?: (word: string) => void
 }
+
+// El orden TIENE que ser el mismo con el que entrenaste
+const CLASS_NAMES = [
+  "A","B","C","D","E","F","H","I","K","L",
+  "M","N","O","P","Q","R","T","U","V","W","Y"
+]
 
 type LM = { x: number; y: number; z?: number }
 type MPResults = {
@@ -28,179 +32,234 @@ function loadHandsScript(): Promise<void> {
   })
 }
 
-export function useSignToText({ onWord, onLetter, onShortcut }: UseSignToTextOptions = {}) {
+export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
   const [isRunning, setIsRunning] = useState(false)
+
+  // refs persistentes
+  const modelRef = useRef<tf.LayersModel | null>(null)
   const handsRef = useRef<any>(null)
   const rafRef = useRef<number | null>(null)
   const runningRef = useRef(false)
 
-  // buffer de la palabra (construido por pushLetter)
+  // buffer de palabra en construcción
   const lastSeenRef = useRef<number>(0)
   const currentWordRef = useRef<string>("")
 
-  // ---- Anti-spam / estabilidad para ATAJOS ----
-  const STABLE_FRAMES_FOR_SHORTCUT = 5      // frames necesarios para considerar estable
-  const RESET_NULL_FRAMES = 4               // frames nulos para "soltar" el gesto
-  const SHORTCUT_COOLDOWN_MS = 1200         // no reemitir mismo atajo durante este período
-  const WORD_COOLDOWN_MS = 800              // no reemitir misma palabra muy seguido
+  // anti-spam de letras
+  const lastLetterRef = useRef<string>("")
+  const lastLetterAtRef = useRef<number>(0)
+  const LETTER_COOLDOWN_MS = 180
 
-  const shortcutLabelRef = useRef<string | null>(null)  // label que estamos viendo
-  const shortcutStableCountRef = useRef<number>(0)      // cuántos frames seguidos
-  const nullFramesRef = useRef<number>(0)               // conteo de frames sin gesto
-  const shortcutArmedRef = useRef<boolean>(true)        // solo emite si está "armado"
-  const lastShortcutEmitAtRef = useRef<number>(0)
-
+  // cooldown para no repetir la misma palabra altiro
   const lastEmittedWordRef = useRef<string>("")
   const lastEmittedWordAtRef = useRef<number>(0)
+  const WORD_COOLDOWN_MS = 800
 
-  // ===== atajos de gestos (muy simple, ajusta a tu LSCh real) =====
-  const countExtendedFingers = (lm: LM[]) => {
-    const dist = (a: LM, b: LM) => Math.hypot(a.x - b.x, a.y - b.y)
-    const thumb = dist(lm[4], lm[2]) > 0.1
-    const idx = dist(lm[8], lm[7]) > 0.07
-    const mid = dist(lm[12], lm[11]) > 0.07
-    const ring = dist(lm[16], lm[15]) > 0.07
-    const pky = dist(lm[20], lm[19]) > 0.07
-    const extended = [thumb, idx, mid, ring, pky]
-    const count = extended.filter(Boolean).length
-    return { extended, count }
-  }
+  // frames sin mano
+  const nullFramesRef = useRef<number>(0)
+  const RESET_NULL_FRAMES = 4
 
-  const classifyShortcut = (lm: LM[]): string | null => {
-    const { extended, count } = countExtendedFingers(lm)
-    if (count >= 4) return "HOLA"
-    if (count === 0) return "OK"
-    if (extended[1] && extended[2] && !extended[3] && !extended[4]) return "GRACIAS"
-    return null
-  }
+  // canvas oculto para capturar frame del video
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  const ensureHands = useCallback(async () => {
-    if (handsRef.current) return handsRef.current
-    await loadHandsScript()
-    const HandsCtor = (window as any).Hands
-    if (typeof HandsCtor !== "function") throw new Error("Hands constructor not found (global)")
+  // cargar el modelo tfjs UNA vez
+  useEffect(() => {
+    let cancelled = false
 
-    const hands = new HandsCtor({
-      locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
-    })
-    hands.setOptions({
-      maxNumHands: 1,
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.6,
-      modelComplexity: 1,
-      selfieMode: true,
-    })
-    handsRef.current = hands
-    return hands
+    const loadModelOnce = async () => {
+      try {
+        console.log("[LSC] Cargando modelo /model/model.json ...")
+        const loaded = await tf.loadLayersModel("/model/model.json")
+        if (cancelled) return
+        modelRef.current = loaded
+
+        // warmup para quitar el lag inicial
+        const warm = tf.zeros([1, 224, 224, 3])
+        ;(loaded.predict(warm) as tf.Tensor).dispose()
+        warm.dispose()
+
+        console.log("[LSC] Modelo cargado OK")
+      } catch (err) {
+        console.error("[LSC] Error cargando modelo TFJS:", err)
+      }
+    }
+
+    loadModelOnce()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const handleShortcutStability = (sc: string | null, now: number) => {
-    // conteo de frames nulos para "soltar" el gesto
-    if (sc === null) {
-      nullFramesRef.current += 1
-      shortcutStableCountRef.current = 0
-      // si soltamos suficiente, re-armamos la emisión
-      if (nullFramesRef.current >= RESET_NULL_FRAMES) {
-        shortcutArmedRef.current = true
-        shortcutLabelRef.current = null
+  // predecir letra desde frame actual
+  const predictFromVideoFrame = useCallback((videoEl: HTMLVideoElement) => {
+    const model = modelRef.current
+    if (!model) return null
+
+    // crear canvas una sola vez
+    if (!canvasRef.current) {
+      const c = document.createElement("canvas")
+      c.width = 224
+      c.height = 224
+      c.style.display = "none"
+      document.body.appendChild(c)
+      canvasRef.current = c
+    }
+
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return null
+
+    // dibujar frame escalado a 224x224
+    ctx.drawImage(videoEl, 0, 0, 224, 224)
+
+    const imageData = ctx.getImageData(0, 0, 224, 224)
+    const imgTensor = tf.browser.fromPixels(imageData)
+      .toFloat()
+      .div(255)
+      .expandDims(0) // [1,224,224,3]
+
+    const pred = model.predict(imgTensor) as tf.Tensor
+    const probs = pred.dataSync() as Float32Array
+
+    // argmax
+    let bestIdx = 0
+    let bestVal = probs[0]
+    for (let i = 1; i < probs.length; i++) {
+      if (probs[i] > bestVal) {
+        bestVal = probs[i]
+        bestIdx = i
       }
-      return
     }
 
-    // hay un gesto detectado en este frame
-    nullFramesRef.current = 0
+    imgTensor.dispose()
+    pred.dispose()
 
-    if (sc === shortcutLabelRef.current) {
-      // seguimos con el mismo gesto
-      shortcutStableCountRef.current += 1
-    } else {
-      // gesto cambió: resetear contador
-      shortcutLabelRef.current = sc
-      shortcutStableCountRef.current = 1
-    }
+    const letter = CLASS_NAMES[bestIdx] ?? null
+    return letter
+  }, [])
 
-    // ¿ya es estable y estamos "armados"?
-    const stable = shortcutStableCountRef.current >= STABLE_FRAMES_FOR_SHORTCUT
-    const cooldownOk = now - lastShortcutEmitAtRef.current >= SHORTCUT_COOLDOWN_MS
-
-    if (stable && shortcutArmedRef.current && cooldownOk) {
-      if (onShortcut) onShortcut(sc)
-      lastShortcutEmitAtRef.current = now
-      shortcutArmedRef.current = false // desarmar hasta que se suelte (frames nulos)
-      // evitamos emitir otra vez hasta que el gesto desaparezca
-    }
-  }
-
+  // loop principal: mediapipe -> predicción -> buffer
   const runLoop = useCallback(
     async (videoEl: HTMLVideoElement) => {
-      const hands = await ensureHands()
+      // asegurar mediapipe Hands cargado
+      const hands = await (async () => {
+        if (handsRef.current) return handsRef.current
+        await loadHandsScript()
+
+        const HandsCtor = (window as any).Hands
+        if (typeof HandsCtor !== "function") {
+          console.error("[LSC] Hands constructor no encontrado")
+          throw new Error("Hands constructor not found")
+        }
+
+        const h = new HandsCtor({
+          locateFile: (f: string) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+        })
+        h.setOptions({
+          maxNumHands: 1,
+          minDetectionConfidence: 0.6,
+          minTrackingConfidence: 0.6,
+          modelComplexity: 1,
+          selfieMode: true,
+        })
+        handsRef.current = h
+        return h
+      })()
 
       hands.onResults((res: MPResults) => {
         const now = performance.now()
-        const lms = res.multiHandLandmarks?.[0] as HandLandmarks | undefined
+        const lms = res.multiHandLandmarks?.[0]
 
         if (lms && lms.length >= 21) {
+          // mano visible
           lastSeenRef.current = now
+          nullFramesRef.current = 0
 
-          // Atajo con estabilidad/cooldown
-          handleShortcutStability(classifyShortcut(lms as LM[]), now)
+          // predecir letra
+          const letter = predictFromVideoFrame(videoEl)
+          if (letter) {
+            const lastL = lastLetterRef.current
+            const lastT = lastLetterAtRef.current
+            const diff = now - lastT
 
-          // Las letras (dactilología) se empujan desde fuera con pushLetter()
-          // Aquí solo gestionamos el cierre de palabra por inactividad.
-        } else {
-          // Sin mano visible este frame
-          nullFramesRef.current += 1
-          if (nullFramesRef.current >= RESET_NULL_FRAMES) {
-            shortcutArmedRef.current = true
-            shortcutLabelRef.current = null
-            shortcutStableCountRef.current = 0
+            if (letter !== lastL || diff > LETTER_COOLDOWN_MS) {
+              lastLetterRef.current = letter
+              lastLetterAtRef.current = now
+
+              currentWordRef.current += letter
+              if (onLetter) onLetter(letter)
+            }
           }
+        } else {
+          // sin mano visible en este frame
+          nullFramesRef.current += 1
         }
 
-        // Cierre de palabra por inactividad (1.2s sin ver mano)
+        // si llevo ~1.2s sin mano -> cierro palabra
         if (onWord && currentWordRef.current) {
           const idle = now - lastSeenRef.current
           if (idle > 1200) {
             const word = currentWordRef.current
             currentWordRef.current = ""
 
-            // cooldown por palabra: no repetir "hola" 20 veces seguidas
             const sameAsLast = word === lastEmittedWordRef.current
             const sinceLast = now - lastEmittedWordAtRef.current
-            if (!(sameAsLast && sinceLast < WORD_COOLDOWN_MS)) {
+            const tooSoon = sameAsLast && sinceLast < WORD_COOLDOWN_MS
+
+            if (!tooSoon) {
               onWord(word)
               lastEmittedWordRef.current = word
               lastEmittedWordAtRef.current = now
             }
           }
         }
+
+        // capea nullFramesRef.current para que no crezca infinito
+        if (nullFramesRef.current > RESET_NULL_FRAMES) {
+          nullFramesRef.current = RESET_NULL_FRAMES
+        }
       })
 
+      // bucle de frames
       const loop = async () => {
         if (!runningRef.current) return
-        if (videoEl.readyState >= 2 && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-          await hands.send({ image: videoEl })
+
+        if (
+          videoEl.readyState >= 2 &&
+          videoEl.videoWidth > 0 &&
+          videoEl.videoHeight > 0
+        ) {
+          try {
+            await hands.send({ image: videoEl })
+          } catch {
+            // ignorar mientras hands inicializa
+          }
         }
+
         rafRef.current = requestAnimationFrame(loop)
       }
+
       loop()
     },
-    [ensureHands, onWord, onShortcut]
+    [predictFromVideoFrame, onWord, onLetter]
   )
 
+  // API pública del hook
   const start = useCallback(async (videoEl: HTMLVideoElement | null) => {
     if (!videoEl) return
     if (runningRef.current) return
+
     runningRef.current = true
     setIsRunning(true)
 
-    // reset de estados
+    // reset buffers
     lastSeenRef.current = performance.now()
     currentWordRef.current = ""
-    shortcutLabelRef.current = null
-    shortcutStableCountRef.current = 0
+    lastLetterRef.current = ""
+    lastLetterAtRef.current = 0
     nullFramesRef.current = 0
-    shortcutArmedRef.current = true
 
     await runLoop(videoEl)
   }, [runLoop])
@@ -209,17 +268,12 @@ export function useSignToText({ onWord, onLetter, onShortcut }: UseSignToTextOpt
     if (!runningRef.current) return
     runningRef.current = false
     setIsRunning(false)
+
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
   }, [])
 
-  // API para ir agregando letras al “word buffer”
-  const pushLetter = (ch: string) => {
-    currentWordRef.current += ch
-    if (onLetter) onLetter(ch)
-  }
-
-  return { isRunning, start, stop, pushLetter }
+  return { isRunning, start, stop }
 }

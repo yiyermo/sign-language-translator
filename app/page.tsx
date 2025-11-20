@@ -1,21 +1,20 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useState, useCallback } from "react"
 
 import { useTranslatorState } from "@/hooks/useTranslatorState"
 import { useCamera } from "@/hooks/useCamera"
 import { useSpeech } from "@/hooks/useSpeech"
 import { useSignToText } from "@/hooks/useSignToText"
-import { useFingerspelling } from "@/hooks/useFingerspelling"
 
 import ModeToggle from "@/components/translator/ModeToggle"
 import CameraSection from "@/components/translator/CameraSection"
 import ResultsSection from "@/components/translator/ResultsSection"
 import StatusBar from "@/components/translator/StatusBar"
 import Instructions from "@/components/translator/Instructions"
-import FingerspellingTrainer from "@/components/translator/FingerspellingTrainer"
 
 export default function SignLanguageTranslatorPage() {
+  // Estado global (modo, texto traducido, etc.)
   const {
     mode,
     setMode,
@@ -26,125 +25,118 @@ export default function SignLanguageTranslatorPage() {
     clearTranslation,
   } = useTranslatorState()
 
+  // Cámara: viene con su propio videoRef interno
   const { videoRef, cameraPermission, isRecording, startCamera, stopCamera } = useCamera()
+
+  // Texto a voz
   const { speak } = useSpeech()
 
-  const {
-    labels,
-    addExample,
-    predictStable,
-    save: saveFS,
-    reset: resetFS,
-  } = useFingerspelling()
+  // Buffers internos para mostrar la experiencia de escritura en vivo
+  // liveLetters = lo que voy deletreando ahora mismo (A M O ...)
+  // finalWords  = palabras ya "cerradas" cuando dejo de hacer seña ~1.2s
+  const [liveLetters, setLiveLetters] = useState("")
+  const [finalWords, setFinalWords] = useState("")
 
-  const { start, stop, pushLetter } = useSignToText({
-    onShortcut: (w) => {
-      setTranslatedText((prev) => (prev ? `${prev} ${w}` : w))
+  // Hook de IA (modelo tfjs + mediapipe)
+  const { isRunning, start, stop } = useSignToText({
+    onLetter: (ch) => {
+      // Se detectó una letra en el frame actual
+      setLiveLetters((prev) => prev + ch)
+
+      // También lo reflejamos inmediatamente en el texto global
+      setTranslatedText((prev) => (prev ? prev + ch : ch))
     },
-    onWord: (w) => {
-      if (!w.trim()) return
-      const fixed = autocorrectSpanish(w)
-      setTranslatedText((prev) => (prev ? `${prev} ${fixed}` : fixed))
+
+    onWord: (word) => {
+      // Se detectó una "pausa", entonces esa secuencia es una palabra completa
+      const clean = word.trim()
+      if (!clean) return
+
+      // Agregar al historial de palabras finales
+      setFinalWords((prev) => (prev ? `${prev} ${clean}` : clean))
+
+      // Reflejarlo en el texto global visible
+      setTranslatedText((prev) =>
+        prev ? `${prev} ${clean}` : clean
+      )
+
+      // Vaciar las letras en vivo (empieza nueva palabra)
+      setLiveLetters("")
+    },
+
+    onShortcut: (shortcutWord) => {
+      // Gestos especiales tipo HOLA / OK / GRACIAS
+      setFinalWords((prev) =>
+        prev ? `${prev} ${shortcutWord}` : shortcutWord
+      )
+
+      setTranslatedText((prev) =>
+        prev ? `${prev} ${shortcutWord}` : shortcutWord
+      )
+
+      setLiveLetters("")
     },
   })
 
-  // ---------- Estabilización adicional en UI ----------
-  const lastCharAtRef = useRef<number>(0)
-  const lastCharRef = useRef<string>("")
-  const LETTER_COOLDOWN_MS = 220
+  // Reproducir audio
+  const handleSpeak = useCallback(() => {
+    const textToSpeak = translatedText || finalWords
+    if (!textToSpeak) return
+    speak(textToSpeak, "es-CL")
+  }, [speak, translatedText, finalWords])
 
-  // Control para no mezclar recolección de ejemplos y predicción
-  const isCollectingRef = useRef<boolean>(false)
+  // Limpiar texto y detener reconocimiento
+  const handleClear = useCallback(() => {
+    stop()               // detener IA
+    setLiveLetters("")   // limpiar buffer actual
+    setFinalWords("")    // limpiar texto consolidado
+    clearTranslation()   // limpiar global
+  }, [stop, clearTranslation])
 
-  // Cola de “peticiones de recolección” atendidas en el streaming
-  const onCollectRequest = useRef<string[]>([])
-
-  // ---------- Registro estable del stream de frames ----------
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // Registramos exactamente una función estable para el stream
-    // @ts-ignore
-    window.__FS_STREAM__ = {
-      onFrame: (lm: any[] | null) => {
-        if (!lm || lm.length < 21) return
-
-        // 1) ¿Recolección de ejemplos solicitada?
-        const req = onCollectRequest.current.shift()
-        if (req) {
-          isCollectingRef.current = true
-          addExample(req, lm as any)
-          // breve descanso para no mezclar con predicción
-          setTimeout(() => { isCollectingRef.current = false }, 120)
-        }
-
-        // 2) Predicción (si no estamos recolectando)
-        if (!isCollectingRef.current) {
-          // Nota: si tu predictStable entrega 'confidence', la usamos; si no, se ignora.
-          predictStable(lm as any, (ch: string, confidence?: number) => {
-            const now = performance.now()
-
-            if (typeof confidence === "number" && confidence < 0.8) return
-
-            // Antirebote: evita repetir la misma letra en una ventana corta
-            if (ch === lastCharRef.current && (now - lastCharAtRef.current) < LETTER_COOLDOWN_MS) {
-              return
-            }
-
-            lastCharRef.current = ch
-            lastCharAtRef.current = now
-
-            pushLetter(ch)
-            setTranslatedText((prev) => (prev ? `${prev}${ch}` : ch))
-          })
-        }
-      }
-    }
-
-    // Limpieza segura al desmontar
-    return () => {
-      // @ts-ignore
-      if (window.__FS_STREAM__) {
-        // @ts-ignore
-        window.__FS_STREAM__.onFrame = () => {}
-      }
-    }
-  }, [addExample, predictStable, pushLetter, setTranslatedText])
-
-  // ---------- Entrenamiento: recolección programada de ejemplos ----------
-  const scheduleAdd = (label: string) => {
-    let left = 5
-    isCollectingRef.current = true
-    const id = setInterval(() => {
-      onCollectRequest.current.push(label)
-      left--
-      if (left <= 0) {
-        clearInterval(id)
-        // pequeño respiro para no mezclar con predicción
-        setTimeout(() => { isCollectingRef.current = false }, 150)
-      }
-    }, 120)
-  }
-
-  // ---------- Cámara ----------
-  const onToggleCamera = async () => {
+  // Encender / apagar cámara + IA
+  const onToggleCamera = useCallback(async () => {
     try {
       if (isRecording) {
-        stop()
+        // estaba encendida → apaga todo
+        stop()          // detiene el loop de reconocimiento IA
         await stopCamera()
         return
       }
+
+      // estaba apagada → enciendo
       await startCamera()
+
       if (videoRef.current) {
+        // iniciar el loop de reconocimiento pasándole el <video>
         await start(videoRef.current)
-        // reinicia estabilizadores para una nueva sesión
-        lastCharRef.current = ""
-        lastCharAtRef.current = 0
       }
+
+      // reiniciar buffer de letras en vivo para una nueva sesión
+      setLiveLetters("")
     } catch (e) {
       console.error("Error al iniciar/detener cámara", e)
     }
-  }
+  }, [isRecording, startCamera, stopCamera, videoRef, start, stop])
+
+  // Cambiar de modo (signs-to-text / text-to-signs)
+  const handleModeChange = useCallback(
+    async (newMode: typeof mode) => {
+      // Si salgo del modo "signs-to-text", apago cámara e IA
+      if (mode === "signs-to-text") {
+        stop()
+        if (isRecording) {
+          await stopCamera()
+        }
+      }
+      setMode(newMode)
+    },
+    [mode, stop, isRecording, stopCamera, setMode]
+  )
+
+  // Lo que mostramos en el cuadro de resultado:
+  // prioridad: letra en vivo > palabras consolidadas > translatedText global
+  const shownText =
+    liveLetters || finalWords || translatedText || ""
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -159,18 +151,10 @@ export default function SignLanguageTranslatorPage() {
           </p>
         </div>
 
+        {/* Cambiador de modo (signs-to-text / text-to-signs) */}
         <ModeToggle
           mode={mode}
-          onChange={async (m) => {
-            // Al salir de "signs-to-text", apagar captura y limpiar estabilizadores
-            if (mode === "signs-to-text") {
-              stop()
-              if (isRecording) await stopCamera()
-              lastCharRef.current = ""
-              lastCharAtRef.current = 0
-            }
-            setMode(m)
-          }}
+          onChange={handleModeChange}
         />
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -190,6 +174,8 @@ export default function SignLanguageTranslatorPage() {
               onTranslate={() => {
                 const txt = inputText.trim()
                 if (!txt) return
+                // Por ahora solo mostramos un placeholder.
+                // Aquí más adelante va el avatar/secuencia en señas.
                 setTranslatedText(`Mostrando secuencia de señas para: "${txt}"`)
               }}
             />
@@ -197,40 +183,15 @@ export default function SignLanguageTranslatorPage() {
 
           <ResultsSection
             mode={mode}
-            text={translatedText}
-            onSpeak={() => speak(translatedText, "es-CL")}
-            onClear={() => {
-              stop()
-              lastCharRef.current = ""
-              lastCharAtRef.current = 0
-              clearTranslation()
-            }}
+            text={shownText}
+            onSpeak={handleSpeak}
+            onClear={handleClear}
           />
         </div>
 
-        {mode === "signs-to-text" && (
-          <FingerspellingTrainer
-            onAdd={scheduleAdd}
-            labels={labels}
-            onSave={saveFS}
-            onReset={() => {
-              resetFS()
-              lastCharRef.current = ""
-              lastCharAtRef.current = 0
-              clearTranslation()
-            }}
-          />
-        )}
-
-        <StatusBar isRecording={isRecording} mode={mode} />
+        <StatusBar isRecording={isRecording || isRunning} mode={mode} />
         <Instructions />
       </div>
     </div>
   )
-}
-
-// Heurística simple para tildes comunes (muy básica)
-function autocorrectSpanish(word: string) {
-  // puedes enriquecer con un diccionario o LM
-  return word
 }
