@@ -8,7 +8,6 @@ type UseSignToTextOptions = {
   onLetter?: (ch: string) => void
 }
 
-// El orden TIENE que ser el mismo con el que entrenaste
 const CLASS_NAMES = [
   "A","B","C","D","E","F","H","I","K","L",
   "M","N","O","P","Q","R","T","U","V","W","Y"
@@ -32,37 +31,54 @@ function loadHandsScript(): Promise<void> {
   })
 }
 
+type RecognitionState = "IDLE" | "LOCKED"
+
 export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
   const [isRunning, setIsRunning] = useState(false)
 
-  // refs persistentes
   const modelRef = useRef<tf.LayersModel | null>(null)
   const handsRef = useRef<any>(null)
   const rafRef = useRef<number | null>(null)
   const runningRef = useRef(false)
 
-  // buffer de palabra en construcción
   const lastSeenRef = useRef<number>(0)
   const currentWordRef = useRef<string>("")
 
-  // anti-spam de letras
-  const lastLetterRef = useRef<string>("")
-  const lastLetterAtRef = useRef<number>(0)
-  const LETTER_COOLDOWN_MS = 180
-
-  // cooldown para no repetir la misma palabra altiro
+  // Palabras
   const lastEmittedWordRef = useRef<string>("")
   const lastEmittedWordAtRef = useRef<number>(0)
   const WORD_COOLDOWN_MS = 800
 
-  // frames sin mano
-  const nullFramesRef = useRef<number>(0)
-  const RESET_NULL_FRAMES = 4
-
-  // canvas oculto para capturar frame del video
+  // Canvas oculto
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // cargar el modelo tfjs UNA vez
+  // --- PARÁMETROS DE RECONOCIMIENTO ---
+  const MIN_CONFIDENCE = 0.4           // confianza mínima para considerar una letra
+  const WINDOW_SIZE = 6                // nº máx de predicciones en la ventana
+  const MIN_STABLE_FRAMES = 3          // nº de apariciones de la misma letra dentro de la ventana
+  const CHANGE_FRAMES = 4              // nº de frames distintos para considerar que la mano cambió de seña
+  const NO_CONF_RESET_FRAMES = 5       // nº de frames sin predicción confiable para liberar la letra
+  const IDLE_WORD_GAP_MS = 1200        // tiempo sin mano para cerrar palabra
+
+  // Estado de la máquina
+  const stateRef = useRef<RecognitionState>("IDLE")
+  const lockedLetterRef = useRef<string | null>(null)
+
+  // Ventana de predicciones recientes (solo letra + confianza)
+  const predictionWindowRef = useRef<{ letter: string; confidence: number }[]>(
+    []
+  )
+
+  // Contadores
+  const diffFromLockedFramesRef = useRef<number>(0)
+  const noConfFramesRef = useRef<number>(0)
+
+  // Para evitar duplicar letras por si acaso
+  const lastLetterRef = useRef<string>("")
+  const lastLetterAtRef = useRef<number>(0)
+  const LETTER_MIN_GAP_MS = 300
+
+  // 1) Cargar modelo una vez
   useEffect(() => {
     let cancelled = false
 
@@ -73,8 +89,8 @@ export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
         if (cancelled) return
         modelRef.current = loaded
 
-        // warmup para quitar el lag inicial
-        const warm = tf.zeros([1, 224, 224, 3])
+        // Warmup
+        const warm = tf.zeros([1, 128, 128, 3])
         ;(loaded.predict(warm) as tf.Tensor).dispose()
         warm.dispose()
 
@@ -85,44 +101,42 @@ export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
     }
 
     loadModelOnce()
-
     return () => {
       cancelled = true
     }
   }, [])
 
-  // predecir letra desde frame actual
+  // 2) Predicción desde el frame actual → { letter, confidence }
   const predictFromVideoFrame = useCallback((videoEl: HTMLVideoElement) => {
     const model = modelRef.current
     if (!model) return null
 
-    // crear canvas una sola vez
     if (!canvasRef.current) {
       const c = document.createElement("canvas")
-      c.width = 224
-      c.height = 224
+      c.width = 128
+      c.height = 128
       c.style.display = "none"
       document.body.appendChild(c)
       canvasRef.current = c
     }
 
     const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    const ctx =
+      (canvas.getContext("2d", { willReadFrequently: true } as any) ||
+      canvas.getContext("2d")) as CanvasRenderingContext2D | null
     if (!ctx) return null
 
-    // dibujar frame escalado a 224x224
-    ctx.drawImage(videoEl, 0, 0, 224, 224)
+    ctx.drawImage(videoEl, 0, 0, 128, 128)
+    const imageData = ctx.getImageData(0, 0, 128, 128)
 
-    const imageData = ctx.getImageData(0, 0, 224, 224)
-    const imgTensor = tf.browser.fromPixels(imageData)
+    const imgTensor = tf.browser
+      .fromPixels(imageData)
       .toFloat()
-      .div(255)
-      .expandDims(0) // [1,224,224,3]
+      .expandDims(0)
 
     const pred = model.predict(imgTensor) as tf.Tensor
     const probs = pred.dataSync() as Float32Array
 
-    // argmax
     let bestIdx = 0
     let bestVal = probs[0]
     for (let i = 1; i < probs.length; i++) {
@@ -136,15 +150,62 @@ export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
     pred.dispose()
 
     const letter = CLASS_NAMES[bestIdx] ?? null
-    return letter
+    if (!letter) return null
+
+    // Log de debug suelto
+    if (Math.random() < 0.1) {
+      console.log(
+        `[LSC] pred letter=${letter} conf=${bestVal.toFixed(2)}`
+      )
+    }
+
+    return { letter, confidence: bestVal }
   }, [])
 
-  // loop principal: mediapipe -> predicción -> buffer
+  // 3) Lógica para calcular la letra estable dentro de la ventana
+  const getStableLetterFromWindow = () => {
+    const window = predictionWindowRef.current
+    if (window.length === 0) return null
+
+    const counts: Record<string, { count: number; sumConf: number }> = {}
+
+    for (const { letter, confidence } of window) {
+      if (!counts[letter]) {
+        counts[letter] = { count: 0, sumConf: 0 }
+      }
+      counts[letter].count += 1
+      counts[letter].sumConf += confidence
+    }
+
+    let bestLetter: string | null = null
+    let bestCount = 0
+    let bestAvgConf = 0
+
+    for (const [letter, { count, sumConf }] of Object.entries(counts)) {
+      const avg = sumConf / count
+      if (
+        count > bestCount ||
+        (count === bestCount && avg > bestAvgConf)
+      ) {
+        bestLetter = letter
+        bestCount = count
+        bestAvgConf = avg
+      }
+    }
+
+    if (!bestLetter) return null
+    if (bestCount < MIN_STABLE_FRAMES) return null
+    if (bestAvgConf < MIN_CONFIDENCE) return null
+
+    return { letter: bestLetter, avgConfidence: bestAvgConf, count: bestCount }
+  }
+
+  // 4) Loop principal con MediaPipe
   const runLoop = useCallback(
     async (videoEl: HTMLVideoElement) => {
-      // asegurar mediapipe Hands cargado
       const hands = await (async () => {
         if (handsRef.current) return handsRef.current
+
         await loadHandsScript()
 
         const HandsCtor = (window as any).Hands
@@ -171,58 +232,143 @@ export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
       hands.onResults((res: MPResults) => {
         const now = performance.now()
         const lms = res.multiHandLandmarks?.[0]
+        const hasHand = !!(lms && lms.length >= 21)
 
-        if (lms && lms.length >= 21) {
-          // mano visible
+        if (hasHand) {
           lastSeenRef.current = now
-          nullFramesRef.current = 0
-
-          // predecir letra
-          const letter = predictFromVideoFrame(videoEl)
-          if (letter) {
-            const lastL = lastLetterRef.current
-            const lastT = lastLetterAtRef.current
-            const diff = now - lastT
-
-            if (letter !== lastL || diff > LETTER_COOLDOWN_MS) {
-              lastLetterRef.current = letter
-              lastLetterAtRef.current = now
-
-              currentWordRef.current += letter
-              if (onLetter) onLetter(letter)
-            }
-          }
-        } else {
-          // sin mano visible en este frame
-          nullFramesRef.current += 1
         }
 
-        // si llevo ~1.2s sin mano -> cierro palabra
-        if (onWord && currentWordRef.current) {
-          const idle = now - lastSeenRef.current
-          if (idle > 1200) {
-            const word = currentWordRef.current
-            currentWordRef.current = ""
+        // Estado actual
+        const state = stateRef.current
 
-            const sameAsLast = word === lastEmittedWordRef.current
-            const sinceLast = now - lastEmittedWordAtRef.current
-            const tooSoon = sameAsLast && sinceLast < WORD_COOLDOWN_MS
+        // --- SI HAY MANO ---
+        if (hasHand) {
+          const pred = predictFromVideoFrame(videoEl)
 
-            if (!tooSoon) {
-              onWord(word)
-              lastEmittedWordRef.current = word
-              lastEmittedWordAtRef.current = now
+          if (!pred || pred.confidence < MIN_CONFIDENCE) {
+            // mano pero predicción poco confiable
+            noConfFramesRef.current += 1
+
+            if (state === "LOCKED" && noConfFramesRef.current >= NO_CONF_RESET_FRAMES) {
+              // "soltó" la seña (no hay señal clara)
+              stateRef.current = "IDLE"
+              lockedLetterRef.current = null
+              predictionWindowRef.current = []
+              diffFromLockedFramesRef.current = 0
+              noConfFramesRef.current = 0
+              console.log("[LSC] Liberando letra por falta de confianza")
+            }
+
+            return
+          }
+
+          noConfFramesRef.current = 0
+
+          const { letter, confidence } = pred
+
+          // --- ESTADO IDLE: buscando nueva letra ---
+          if (state === "IDLE") {
+            // agregamos a la ventana
+            predictionWindowRef.current.push({ letter, confidence })
+            if (predictionWindowRef.current.length > WINDOW_SIZE) {
+              predictionWindowRef.current.shift()
+            }
+
+            const stable = getStableLetterFromWindow()
+            if (stable) {
+              const locked = stable.letter
+              const nowMs = performance.now()
+
+              // evitar duplicar exactamente la misma letra muy seguido
+              if (
+                locked !== lastLetterRef.current ||
+                nowMs - lastLetterAtRef.current > LETTER_MIN_GAP_MS
+              ) {
+                lockedLetterRef.current = locked
+                stateRef.current = "LOCKED"
+                predictionWindowRef.current = []
+
+                lastLetterRef.current = locked
+                lastLetterAtRef.current = nowMs
+
+                currentWordRef.current += locked
+                console.log("[LSC] Letra emitida:", locked)
+                onLetter?.(locked)
+              } else {
+                // si cayó en la misma letra muy rápido, simplemente ignoramos
+                predictionWindowRef.current = []
+              }
+            }
+          }
+
+          // --- ESTADO LOCKED: ya se emitió una letra, esperamos cambio ---
+          else if (state === "LOCKED") {
+            const locked = lockedLetterRef.current
+
+            if (!locked) {
+              // algo raro, reseteamos
+              stateRef.current = "IDLE"
+              predictionWindowRef.current = []
+              diffFromLockedFramesRef.current = 0
+              return
+            }
+
+            if (letter === locked) {
+              // misma letra que la bloqueada → todo bien, no contamos cambio
+              diffFromLockedFramesRef.current = 0
+            } else {
+              // posible nueva seña: contamos frames distintos
+              diffFromLockedFramesRef.current += 1
+
+              if (diffFromLockedFramesRef.current >= CHANGE_FRAMES) {
+                // ahora liberamos para que se pueda detectar una nueva letra
+                stateRef.current = "IDLE"
+                lockedLetterRef.current = null
+                predictionWindowRef.current = []
+                diffFromLockedFramesRef.current = 0
+                console.log("[LSC] Cambio de seña detectado, listo para nueva letra")
+              }
             }
           }
         }
 
-        // capea nullFramesRef.current para que no crezca infinito
-        if (nullFramesRef.current > RESET_NULL_FRAMES) {
-          nullFramesRef.current = RESET_NULL_FRAMES
+        // --- SIN MANO ---
+        if (!hasHand) {
+          noConfFramesRef.current += 1
+
+          // si no hay mano por un rato, reseteamos a IDLE
+          if (noConfFramesRef.current >= NO_CONF_RESET_FRAMES) {
+            if (stateRef.current === "LOCKED") {
+              console.log("[LSC] Mano fuera de cuadro, liberando letra")
+            }
+            stateRef.current = "IDLE"
+            lockedLetterRef.current = null
+            predictionWindowRef.current = []
+            diffFromLockedFramesRef.current = 0
+          }
+
+          // detección de fin de palabra por inactividad
+          if (onWord && currentWordRef.current) {
+            const idle = now - lastSeenRef.current
+            if (idle > IDLE_WORD_GAP_MS) {
+              const word = currentWordRef.current
+              currentWordRef.current = ""
+
+              const sameAsLast = word === lastEmittedWordRef.current
+              const sinceLast = now - lastEmittedWordAtRef.current
+              const tooSoon = sameAsLast && sinceLast < WORD_COOLDOWN_MS
+
+              if (!tooSoon) {
+                console.log("[LSC] Palabra emitida:", word)
+                onWord(word)
+                lastEmittedWordRef.current = word
+                lastEmittedWordAtRef.current = now
+              }
+            }
+          }
         }
       })
 
-      // bucle de frames
       const loop = async () => {
         if (!runningRef.current) return
 
@@ -246,23 +392,31 @@ export function useSignToText({ onWord, onLetter }: UseSignToTextOptions = {}) {
     [predictFromVideoFrame, onWord, onLetter]
   )
 
-  // API pública del hook
-  const start = useCallback(async (videoEl: HTMLVideoElement | null) => {
-    if (!videoEl) return
-    if (runningRef.current) return
+  const start = useCallback(
+    async (videoEl: HTMLVideoElement | null) => {
+      if (!videoEl) return
+      if (runningRef.current) return
 
-    runningRef.current = true
-    setIsRunning(true)
+      runningRef.current = true
+      setIsRunning(true)
 
-    // reset buffers
-    lastSeenRef.current = performance.now()
-    currentWordRef.current = ""
-    lastLetterRef.current = ""
-    lastLetterAtRef.current = 0
-    nullFramesRef.current = 0
+      // reset de todos los refs
+      lastSeenRef.current = performance.now()
+      currentWordRef.current = ""
 
-    await runLoop(videoEl)
-  }, [runLoop])
+      lastLetterRef.current = ""
+      lastLetterAtRef.current = 0
+
+      stateRef.current = "IDLE"
+      lockedLetterRef.current = null
+      predictionWindowRef.current = []
+      diffFromLockedFramesRef.current = 0
+      noConfFramesRef.current = 0
+
+      await runLoop(videoEl)
+    },
+    [runLoop]
+  )
 
   const stop = useCallback(() => {
     if (!runningRef.current) return
