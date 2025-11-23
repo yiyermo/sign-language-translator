@@ -89,17 +89,7 @@ export default function SignsToTextSection({
           </Button>
         </div>
 
-        <div className="space-y-1 flex-1">
-          <Textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Aquí se mostrará el texto que vas construyendo con el deletreo..."
-            className="min-h-[120px] bg-background"
-          />
-          <p className="text-xs text-muted-foreground">
-            Puedes corregir directamente el texto si te equivocas al elegir una letra.
-          </p>
-        </div>
+
       </CardContent>
     </Card>
   )
