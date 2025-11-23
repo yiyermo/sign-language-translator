@@ -1,34 +1,20 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Open_Sans, Work_Sans } from "next/font/google"
+import type { ReactNode } from "react"
 import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
 
-const openSans = Open_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sans",
-})
-
-const workSans = Work_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-heading",
-})
-
-export const metadata: Metadata = {
-  title: "Traductor de Lenguaje de Señas",
-  description: "Aplicación web para traducir lenguaje de señas español castellano a texto y viceversa",
-  generator: "v0.app",
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es" className={`${openSans.variable} ${workSans.variable} antialiased`}>
-      <body>{children}</body>
+    <html lang="es" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}   // 👈 fuerza light
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

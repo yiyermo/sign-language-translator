@@ -1,80 +1,67 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* Si no usarás variantes dark en Tailwind, puedes comentar esto */
+/* @custom-variant dark (&:is(.dark *)); */
 
+/* 🎨 Tema CLARO base: pensado para buena legibilidad y look suave */
 :root {
-  /* Updated color tokens for sign language app accessibility */
-  --background: oklch(1 0 0); /* White background for maximum contrast */
-  --foreground: oklch(0.35 0 0); /* Dark slate gray for text */
-  --card: oklch(0.97 0 0); /* Light gray for cards */
-  --card-foreground: oklch(0.35 0 0);
+  /* Fondo casi blanco, cómodo a la vista */
+  --background: oklch(0.99 0.01 95);
+  --foreground: oklch(0.25 0.03 255); /* gris azulado suave */
+
+  /* Cards blancas con leve gris para separarse del fondo */
+  --card: oklch(0.985 0.01 95);
+  --card-foreground: var(--foreground);
+
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.35 0 0);
-  --primary: oklch(0.45 0.15 160); /* Emerald green for primary actions */
+  --popover-foreground: var(--foreground);
+
+  /* Verde esmeralda suave para acciones principales */
+  --primary: oklch(0.64 0.14 155);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.55 0.12 160); /* Lighter emerald for secondary */
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.35 0 0);
-  --accent: oklch(0.55 0.12 160); /* Emerald accent */
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Secundario un poquito más claro */
+  --secondary: oklch(0.9 0.02 190);
+  --secondary-foreground: oklch(0.25 0.03 255);
+
+  --muted: oklch(0.96 0.01 95);
+  --muted-foreground: oklch(0.4 0.02 255);
+
+  --accent: oklch(0.9 0.03 170); /* toque verde-azulado suave */
+  --accent-foreground: oklch(0.25 0.03 255);
+
+  --destructive: oklch(0.64 0.2 27.3);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9 0 0); /* Light border for definition */
+
+  --border: oklch(0.9 0.01 95);
   --input: oklch(1 0 0);
-  --ring: oklch(0.45 0.15 160 / 0.5); /* Emerald focus ring */
-  --chart-1: oklch(0.45 0.15 160);
-  --chart-2: oklch(0.55 0.12 160);
-  --chart-3: oklch(0.35 0 0);
-  --chart-4: oklch(0.97 0 0);
-  --chart-5: oklch(1 0 0);
+  --ring: oklch(0.64 0.14 155 / 0.6);
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.7 0.15 220);
+  --chart-3: oklch(0.7 0.12 40);
+  --chart-4: oklch(0.8 0.03 95);
+  --chart-5: oklch(0.5 0.1 260);
+
   --radius: 0.5rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.35 0 0);
-  --sidebar-primary: oklch(0.45 0.15 160);
+
+  --sidebar: oklch(0.985 0.01 95);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.55 0.12 160);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.45 0.15 160 / 0.5);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Fuentes */
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Work Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
-.dark {
-  /* Dark mode tokens maintaining accessibility */
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.2 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.55 0.12 160);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.3 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.3 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.55 0.12 160);
-  --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.3 0 0);
-  --input: oklch(0.2 0 0);
-  --ring: oklch(0.55 0.12 160 / 0.5);
-  --chart-1: oklch(0.55 0.12 160);
-  --chart-2: oklch(0.45 0.15 160);
-  --chart-3: oklch(0.985 0 0);
-  --chart-4: oklch(0.3 0 0);
-  --chart-5: oklch(0.145 0 0);
-  --sidebar: oklch(0.2 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.55 0.12 160);
-  --sidebar-primary-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.3 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.3 0 0);
-  --sidebar-ring: oklch(0.55 0.12 160 / 0.5);
-}
+/* 🧊 Modo .dark “neutralizado”: mismo tema claro (no hay dark real) */
+
 
 @theme inline {
   --color-background: var(--background);
@@ -101,10 +88,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -113,19 +102,25 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* Added custom font variables for accessibility */
-  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
+
+  /* Solo mostrar outline en focus visible, no en todo */
+  *:focus-visible {
+    @apply outline-ring/50;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
   }
-  /* Added heading font class */
+
   .font-heading {
     font-family: var(--font-heading);
   }

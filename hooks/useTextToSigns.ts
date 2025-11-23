@@ -1,12 +1,16 @@
+"use client"
+
 import { useMemo, useState } from "react"
 
 export type SignLetter = {
-  /** Letra original (A–Z o Ñ) */
+  /** Letra original (A–Z o Ñ) o símbolo de espacio */
   char: string
   /** Ruta de la imagen en /public */
   imageSrc: string
   /** Posición de la letra dentro del texto (0, 1, 2, …) */
   index: number
+  /** Indica si este elemento representa un espacio */
+  isSpace: boolean
 }
 
 /**
@@ -48,38 +52,60 @@ type LetterChar = (typeof LETTERS)[number]
 const LETTER_SET = new Set<string>(LETTERS)
 
 /**
- * Normaliza el texto:
- * - Mayúsculas
+ * Normaliza un carácter aislado:
+ * - Convierte ñ → Ñ
  * - Elimina tildes (á, é, í, ó, ú → a, e, i, o, u)
- * - Conserva la Ñ
+ * - Devuelve mayúsculas
  */
-function normalizeInput(text: string): string {
-  if (!text) return ""
+function normalizeChar(char: string): string {
+  if (!char) return ""
 
-  // Pasamos la ñ a mayúscula antes, para que sea consistente
-  const withNormalizedÑ = text.replace(/ñ/g, "Ñ")
+  // Aseguramos que ñ pase a Ñ antes de normalizar
+  const withNormalizedÑ = char === "ñ" ? "Ñ" : char
 
-  // NFD separa letras y acentos. Luego quitamos marcas de acento,
-  // pero la Ñ no se ve afectada porque es un carácter independiente.
+  // Quitamos marcas de acento (no afecta a Ñ)
   const noAccents = withNormalizedÑ
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
 
-  // Convertimos a mayúsculas
   return noAccents.toUpperCase()
 }
 
 /**
- * Convierte un texto normalizado en una lista de letras válidas (A–Z, Ñ).
+ * Mapea un texto a una lista de letras con imagen, incluyendo espacios.
  */
-function textToLetterChars(text: string): LetterChar[] {
-  const normalized = normalizeInput(text)
-  const result: LetterChar[] = []
+export function mapTextToSignLetters(text: string): SignLetter[] {
+  if (!text) return []
 
-  for (const char of normalized) {
-    if (LETTER_SET.has(char)) {
-      result.push(char as LetterChar)
+  const result: SignLetter[] = []
+
+  for (let index = 0; index < text.length; index++) {
+    const rawChar = text[index]
+
+    // 🔹 Espacio: devolvemos un objeto especial
+    if (rawChar === " ") {
+      result.push({
+        index,
+        char: "␣",
+        imageSrc: "/signs/space.png", // crea este archivo o cambia la ruta
+        isSpace: true,
+      })
+      continue
     }
+
+    const normalized = normalizeChar(rawChar)
+
+    // Si no es una letra soportada (A–Z, Ñ), lo ignoramos
+    if (!LETTER_SET.has(normalized)) {
+      continue
+    }
+
+    result.push({
+      index,
+      char: normalized,
+      imageSrc: `/signs/letters/${normalized}.png`,
+      isSpace: false,
+    })
   }
 
   return result
@@ -92,35 +118,17 @@ function textToLetterChars(text: string): LetterChar[] {
 export function useTextToSigns(initialText = "") {
   const [text, setText] = useState(initialText)
 
-  const letters: SignLetter[] = useMemo(() => {
-    const chars = textToLetterChars(text)
-
-    return chars.map((char, index) => ({
-      char,
-      imageSrc: `/signs/letters/${char}.png`,
-      index,
-    }))
-  }, [text])
+  const letters: SignLetter[] = useMemo(
+    () => mapTextToSignLetters(text),
+    [text]
+  )
 
   return {
     /** Texto actual escrito por el usuario */
     text,
     /** Setter para actualizar el texto (ej. onChange de un input) */
     setText,
-    /** Letras resultantes con su imagen */
+    /** Letras resultantes con su imagen (incluye espacios) */
     letters,
   }
-}
-
-/**
- * Versión utilitaria sin estado (por si la quieres usar fuera de React).
- */
-export function mapTextToSignLetters(text: string): SignLetter[] {
-  const chars = textToLetterChars(text)
-
-  return chars.map((char, index) => ({
-    char,
-    imageSrc: `/signs/letters/${char}.png`,
-    index,
-  }))
 }

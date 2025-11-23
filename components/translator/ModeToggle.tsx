@@ -2,36 +2,47 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Hand, RotateCcw, Type } from "lucide-react"
+import { Hand, Type } from "lucide-react"
 import type { Mode } from "@/hooks/useTranslatorState"
 
-type Props = { mode: Mode; onChange: (m: Mode) => void }
+type Props = {
+  mode: Mode
+  onChange: (m: Mode) => void
+}
 
 export default function ModeToggle({ mode, onChange }: Props) {
+  const isSignsToText = mode === "signs-to-text"
+  const isTextToSigns = mode === "text-to-signs"
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+    <Card className="border-border bg-card">
+      <CardContent className="p-4 md:p-5 space-y-3">
+        <p className="text-xs md:text-sm text-muted-foreground text-center">
+          Elige cómo quieres usar el traductor: escribir texto para ver el deletreo
+          en señas, o practicar el deletreo construyendo palabras con el teclado.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center">
           <Button
-            variant={mode === "signs-to-text" ? "default" : "outline"}
+            variant={isSignsToText ? "default" : "outline"}
             size="lg"
             onClick={() => onChange("signs-to-text")}
-            className="w-full sm:w-auto min-h-[60px] text-lg"
+            className="w-full sm:w-auto min-h-[52px] text-sm md:text-base justify-center"
+            aria-pressed={isSignsToText}
           >
-            <Hand className="mr-2 h-6 w-6" />
-            Señas a Texto
+            <Hand className="mr-2 h-5 w-5" />
+            Señas a texto
           </Button>
-          <div className="text-muted-foreground">
-            <RotateCcw className="h-5 w-5" />
-          </div>
+
           <Button
-            variant={mode === "text-to-signs" ? "default" : "outline"}
+            variant={isTextToSigns ? "default" : "outline"}
             size="lg"
             onClick={() => onChange("text-to-signs")}
-            className="w-full sm:w-auto min-h-[60px] text-lg"
+            className="w-full sm:w-auto min-h-[52px] text-sm md:text-base justify-center"
+            aria-pressed={isTextToSigns}
           >
-            <Type className="mr-2 h-6 w-6" />
-            Texto a Señas
+            <Type className="mr-2 h-5 w-5" />
+            Texto a señas
           </Button>
         </div>
       </CardContent>
