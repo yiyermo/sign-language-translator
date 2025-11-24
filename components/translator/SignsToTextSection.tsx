@@ -67,15 +67,6 @@ export default function SignsToTextSection({
           </Button>
         </div>
 
-        {/* Área de texto con scroll vertical */}
-        <div className="flex-1 min-h-[140px] max-h-64 overflow-y-auto">
-          <Textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Aquí aparecerá el texto construido..."
-            className="min-h-[140px] h-full"
-          />
-        </div>
       </CardContent>
     </Card>
   )
