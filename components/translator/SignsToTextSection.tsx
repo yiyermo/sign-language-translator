@@ -4,7 +4,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import FingerspellingKeyboard from "@/components/translator/FingerspellingKeyboard"
-import { ArrowLeft, Trash2, Space } from "lucide-react"
 
 type SignsToTextSectionProps = {
   value: string
@@ -30,75 +29,53 @@ export default function SignsToTextSection({
   }
 
   const handleClear = () => {
-    if (!value) return
     onChange("")
   }
 
-  const hasText = Boolean(value && value.length > 0)
-
   return (
-    <Card className="h-full flex flex-col border-border bg-card">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg md:text-xl">
-          Señas a texto (teclado de deletreo)
+    <Card className="h-full flex flex-col">
+      <CardHeader>
+        <CardTitle className="text-xl">
+          Señas a texto (deletreo con teclado visual)
         </CardTitle>
-        <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-          Usa el teclado de letras para simular el deletreo en lengua de señas.
-          El texto se irá armando abajo y puedes editarlo manualmente.
-        </p>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4 flex-1">
-        <FingerspellingKeyboard
-          onSelect={handleSelectLetter}
-          className="mt-1"
-        />
 
+        {/* Instrucciones */}
+        <p className="text-sm text-muted-foreground">
+          Haz clic en las letras del teclado para simular el deletreo en lengua de señas.
+          Ahora el teclado tiene scroll horizontal y la zona de texto scroll vertical.
+        </p>
+
+        {/* SCROLL HORIZONTAL DEL TECLADO */}
+        <div className="overflow-x-auto pb-2">
+          <div className="inline-flex gap-2">
+            <FingerspellingKeyboard onSelect={handleSelectLetter} />
+          </div>
+        </div>
+
+        {/* Botones especiales */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleAddSpace}
-            disabled={!hasText}
-            className="flex items-center gap-1"
-          >
-            <Space className="h-4 w-4" />
-            <span>Espacio</span>
+          <Button type="button" variant="secondary" onClick={handleAddSpace}>
+            Espacio
           </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleBackspace}
-            disabled={!hasText}
-            className="flex items-center gap-1"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Borrar letra</span>
+          <Button type="button" variant="outline" onClick={handleBackspace}>
+            Borrar letra
           </Button>
-
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleClear}
-            disabled={!hasText}
-            className="flex items-center gap-1"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>Borrar todo</span>
+          <Button type="button" variant="destructive" onClick={handleClear}>
+            Borrar todo
           </Button>
         </div>
 
-        <div className="space-y-1 flex-1">
+        {/* Área del texto construido: SCROLL VERTICAL */}
+        <div className="flex-1 min-h-[120px] max-h-60 overflow-y-auto">
           <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Aquí se mostrará el texto que vas construyendo con el deletreo..."
-            className="min-h-[120px] bg-background"
+            placeholder="Aquí se mostrará el texto que vas construyendo..."
+            className="min-h-[120px] h-full"
           />
-          <p className="text-xs text-muted-foreground">
-            Puedes corregir directamente el texto si te equivocas al elegir una letra.
-          </p>
         </div>
       </CardContent>
     </Card>
