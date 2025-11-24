@@ -44,7 +44,7 @@ export default function ResultsSection({
   }
 
   return (
-    <Card className="h-full flex flex-col md:min-h-[320px]">
+    <Card className="h-full flex flex-col md:min-h-80">
       <CardHeader>
         <CardTitle className="text-xl">
           {isTextToSigns ? "Deletreo en señas" : "Resultado"}

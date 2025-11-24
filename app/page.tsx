@@ -1,26 +1,33 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
-import { useTranslatorState } from "@/hooks/useTranslatorState"
+import { useTranslatorState } from "@/hooks/useTranslatorState";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useUsageSession } from "@/hooks/useUsageSession";
+import { useTranslationLogger } from "@/hooks/useTranslationLogger";
 
-import ModeToggle from "@/components/translator/ModeToggle"
-import ResultsSection from "@/components/translator/ResultsSection"
-import StatusBar from "@/components/translator/StatusBar"
-import Instructions from "@/components/translator/Instructions"
-import TextToSignsSection from "@/components/translator/TextToSignsSection"
-import SignsToTextSection from "@/components/translator/SignsToTextSection"
+import ModeToggle from "@/components/translator/ModeToggle";
+import ResultsSection from "@/components/translator/ResultsSection";
+import StatusBar from "@/components/translator/StatusBar";
+import Instructions from "@/components/translator/Instructions";
+import TextToSignsSection from "@/components/translator/TextToSignsSection";
+import SignsToTextSection from "@/components/translator/SignsToTextSection";
+import { SaveTranslationButton } from "@/components/translator/SaveTranslationButton";
 
-import { supabase } from "@/utils/supabase"
+import { AppHeader } from "@/components/layout/AppHeader";
 
-type AuthState = "loading" | "authenticated" | "unauthenticated"
+export default function HomePage() {
+  const router = useRouter();
 
-export default function SignLanguageTranslatorPage() {
-  const router = useRouter()
+  // 🔐 Protección de la página (requiere usuario autenticado)
+  const { status, userEmail, profile, signOut } = useAuthGuard();
 
-  // HOOKS – siempre se ejecutan
+  // Sesión de uso (usage_sessions)
+  const { sessionId, incrementTranslations } = useUsageSession(profile?.id);
+
+  // Estado del traductor
   const {
     mode,
     setMode,
@@ -29,155 +36,171 @@ export default function SignLanguageTranslatorPage() {
     inputText,
     setInputText,
     clearTranslation,
-  } = useTranslatorState()
+  } = useTranslatorState();
 
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [authState, setAuthState] = useState<AuthState>("loading")
+  // Logger de traducciones + analytics
+  const { isSaving, logTranslation, logEvent } = useTranslationLogger({
+    userId: profile?.id,
+    incrementSessionTranslations: incrementTranslations,
+  });
 
-  // Verificar sesión
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession()
-
-      if (!data.session) {
-        setAuthState("unauthenticated")
-        router.replace("/login")
-        return
-      }
-
-      setAuthState("authenticated")
-      setUserEmail(data.session.user.email ?? null)
-    }
-
-    checkSession()
-  }, [router])
-
-  // CLEAN UP Y OTROS HANDLERS (TODOS ESTOS VAN ARRIBA)
+  // Cambiar modo
   const handleModeChange = useCallback(
-    (newMode: typeof mode) => setMode(newMode),
-    [setMode]
-  )
-
+    (newMode: typeof mode) => {
+      // registrar evento de cambio de modo
+      logEvent("mode_changed", {
+        from: mode,
+        to: newMode,
+      });
+      setMode(newMode);
+    },
+    [setMode, mode, logEvent]
+  );
+  const handleGoToProfile = useCallback(() => {
+  router.push("/profile");
+}, [router]);
+  // Limpiar texto
   const handleClear = useCallback(() => {
-    setInputText("")
-    setTranslatedText("")
-    clearTranslation?.()
-  }, [setInputText, setTranslatedText, clearTranslation])
+    setInputText("");
+    setTranslatedText("");
+    clearTranslation?.();
+  }, [setInputText, setTranslatedText, clearTranslation]);
 
-  const shownText =
-    mode === "signs-to-text" ? translatedText || "" : inputText || ""
+  // Texto mostrado en ResultsSection
+  const shownText = useMemo(
+    () => (mode === "signs-to-text" ? translatedText || "" : inputText || ""),
+    [mode, translatedText, inputText]
+  );
 
-  const handleLogout = useCallback(async () => {
-    await supabase.auth.signOut()
-    setAuthState("unauthenticated")
-    router.replace("/login")
-  }, [router])
+  // Guardar en historial
+  const handleSaveTranslation = useCallback(async () => {
+    if (!shownText) return;
 
-  // NO hacemos return aquí.  
-  // Solo mostramos una UI distinta según el estado.
+    if (mode === "text-to-signs") {
+      await logTranslation({
+        inputText: inputText || shownText,
+        outputText: undefined, // las señas son visuales, guardamos solo el texto de entrada
+        type: "text_to_sign",
+      });
+    } else {
+      await logTranslation({
+        inputText: shownText,
+        outputText: translatedText || shownText,
+        type: "sign_to_text",
+      });
+    }
+  }, [mode, shownText, inputText, translatedText, logTranslation]);
 
+  // Ir al panel admin
+  const handleGoToAdmin = useCallback(() => {
+    router.push("/admin");
+  }, [router]);
+
+  // Estados de carga / sin auth
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p className="text-sm text-muted-foreground">Verificando sesión...</p>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated" || status === "forbidden") {
+    // Ya se redirigió en el hook
+    return null;
+  }
+
+  // ✅ Usuario autenticado
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* HEADER GENERAL */}
+      <AppHeader
+        appLabel="Manos que Hablan · Traductor LSCh"
+        subtitle="Traductor de Lengua de Señas Chilena"
+        userEmail={userEmail}
+        userName={profile?.full_name ?? null}
+        onLogout={signOut}
+        showProfileButton={true}
+        onGoToProfile={handleGoToProfile}
+        showAdminButton={profile?.role === "admin"}
+        onGoToAdmin={handleGoToAdmin}
+      />
 
-      {/* === LOADING SCREEN === */}
-      {authState === "loading" && (
-        <div className="min-h-screen flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Cargando...</p>
-        </div>
-      )}
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {/* Encabezado de la página */}
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-bold">
+              Manos que Hablan
+            </h1>
 
-      {/* === NO AUTENTICADO (ya está redirigiendo) === */}
-      {authState === "unauthenticated" && <></>}
+            <p className="text-sm text-muted-foreground max-w-xl">
+              Traductor de Lengua de Señas Chilena (deletreo). Escribe texto
+              para verlo en el abecedario manual, o arma palabras con señas
+              usando el teclado visual.
+            </p>
+          </div>
 
-      {/* === AUTENTICADO: MOSTRAR EL TRADUCTOR === */}
-      {authState === "authenticated" && (
-        <>
-          {/* HEADER */}
-          <div className="border-b border-border bg-muted/60">
-            <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                  Yiyermo · Sign Language Translator
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Traductor de deletreo en Lengua de Señas Chilena
-                </p>
-              </div>
+          <div className="flex flex-col items-end gap-3">
+            <ModeToggle mode={mode} onChange={handleModeChange} />
+          </div>
+        </header>
 
-              <div className="flex items-center gap-3">
-                <span className="text-xs md:text-sm">
-                  Sesión: <strong>{userEmail}</strong>
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-xs md:text-sm text-destructive hover:underline"
-                >
-                  Cerrar sesión
-                </button>
-              </div>
+        {/* Layout principal: entrada / salida */}
+        <section className="grid md:grid-cols-[1.2fr_1fr] gap-6 items-start">
+          {/* Columna izquierda: entrada + instrucciones */}
+          <div className="space-y-4">
+            <div className="bg-card border rounded-xl p-4 md:p-5">
+              {mode === "text-to-signs" ? (
+                <TextToSignsSection
+                  value={inputText}
+                  onChange={(val) => {
+                    setInputText(val);
+                    setTranslatedText(val);
+                  }}
+                />
+              ) : (
+                <SignsToTextSection
+                  value={translatedText}
+                  onChange={(val) => setTranslatedText(val)}
+                />
+              )}
+            </div>
+
+            <div className="bg-muted/60 border rounded-xl p-4">
+              <Instructions />
             </div>
           </div>
 
-          {/* CONTENIDO PRINCIPAL */}
-          <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-            <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl font-bold">
-                  Traductor de Lengua de Señas (Deletreo)
-                </h1>
+          {/* Columna derecha: resultados + barra de estado + guardar */}
+          <div className="space-y-4">
+            <div className="bg-card border rounded-xl p-4 md:p-5">
+              <ResultsSection
+                mode={mode}
+                text={shownText}
+                onClear={handleClear}
+              />
 
-                <p className="text-sm text-muted-foreground max-w-xl">
-                  Escribe texto para verlo en el abecedario manual, o arma
-                  palabras con señas usando el teclado visual.
+              {/* Botón para guardar en historial */}
+              <SaveTranslationButton
+                disabled={!shownText}
+                loading={isSaving}
+                onClick={handleSaveTranslation}
+              />
+            </div>
+
+            <div className="bg-muted/60 border rounded-xl p-3">
+              <StatusBar isRecording={false} mode={mode} />
+              {sessionId && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Sesión de uso activa · ID: {sessionId.slice(0, 8)}…
                 </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-3">
-                <ModeToggle mode={mode} onChange={handleModeChange} />
-              </div>
-            </header>
-
-            <section className="grid md:grid-cols-[1.2fr_1fr] gap-6 items-start">
-              <div className="space-y-4">
-                <div className="bg-card border rounded-xl p-4 md:p-5">
-                  {mode === "text-to-signs" ? (
-                    <TextToSignsSection
-                      value={inputText}
-                      onChange={(val) => {
-                        setInputText(val)
-                        setTranslatedText(val)
-                      }}
-                    />
-                  ) : (
-                    <SignsToTextSection
-                      value={translatedText}
-                      onChange={(val) => setTranslatedText(val)}
-                    />
-                  )}
-                </div>
-
-                <div className="bg-muted/60 border rounded-xl p-4">
-                  <Instructions />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-card border rounded-xl p-4 md:p-5">
-                  <ResultsSection
-                    mode={mode}
-                    text={shownText}
-                    onClear={handleClear}
-                  />
-                </div>
-
-                <div className="bg-muted/60 border rounded-xl p-3">
-                  <StatusBar isRecording={false} mode={mode} />
-                </div>
-              </div>
-            </section>
-          </main>
-        </>
-      )}
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
-  )
+  );
 }
