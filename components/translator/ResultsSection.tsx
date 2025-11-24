@@ -75,21 +75,21 @@ export default function ResultsSection({
                     {/* Palabra */}
                     <span className="text-sm font-semibold">{w.word}</span>
 
-                    {/* Letras con scroll horizontal */}
-                    <div className="flex gap-2 overflow-x-auto pb-1">
+                    {/* Letras en grilla responsive */}
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                       {w.letters.map((letter) => (
                         <div
                           key={letter.index}
-                          className="flex-shrink-0 w-16 flex flex-col items-center gap-1"
+                          className="w-20 flex flex-col items-center gap-1"
                         >
                           <span className="text-[10px] font-medium">
                             {letter.char}
                           </span>
                           <Image
                             src={letter.imageSrc}
-                            alt={`Seña de la letra ${letter.char}`}
-                            width={56}
-                            height={56}
+                            alt={`Seña de ${letter.char}`}
+                            width={64}
+                            height={64}
                             className="rounded-md border"
                           />
                         </div>
