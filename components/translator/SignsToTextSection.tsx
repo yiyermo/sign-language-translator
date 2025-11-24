@@ -3,6 +3,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 import FingerspellingKeyboard from "@/components/translator/FingerspellingKeyboard"
 
 type SignsToTextSectionProps = {
@@ -33,7 +34,7 @@ export default function SignsToTextSection({
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col md:min-h-[420px]">
       <CardHeader>
         <CardTitle className="text-xl">
           Señas a texto (deletreo con teclado visual)
@@ -41,40 +42,38 @@ export default function SignsToTextSection({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4 flex-1">
-
-        {/* Instrucciones */}
         <p className="text-sm text-muted-foreground">
-          Haz clic en las letras del teclado para simular el deletreo en lengua de señas.
-          Ahora el teclado tiene scroll horizontal y la zona de texto scroll vertical.
+          Haz clic en las letras del teclado para formar palabras.  
+          El texto aparece abajo.
         </p>
 
-        {/* SCROLL HORIZONTAL DEL TECLADO */}
+        {/* Teclado con scroll horizontal */}
         <div className="overflow-x-auto pb-2">
           <div className="inline-flex gap-2">
             <FingerspellingKeyboard onSelect={handleSelectLetter} />
           </div>
         </div>
 
-        {/* Botones especiales */}
+        {/* Botones */}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={handleAddSpace}>
+          <Button variant="secondary" onClick={handleAddSpace}>
             Espacio
           </Button>
-          <Button type="button" variant="outline" onClick={handleBackspace}>
+          <Button variant="outline" onClick={handleBackspace}>
             Borrar letra
           </Button>
-          <Button type="button" variant="destructive" onClick={handleClear}>
+          <Button variant="destructive" onClick={handleClear}>
             Borrar todo
           </Button>
         </div>
 
-        {/* Área del texto construido: SCROLL VERTICAL */}
-        <div className="flex-1 min-h-[120px] max-h-60 overflow-y-auto">
+        {/* Área de texto con scroll vertical */}
+        <div className="flex-1 min-h-[140px] max-h-64 overflow-y-auto">
           <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Aquí se mostrará el texto que vas construyendo..."
-            className="min-h-[120px] h-full"
+            placeholder="Aquí aparecerá el texto construido..."
+            className="min-h-[140px] h-full"
           />
         </div>
       </CardContent>
