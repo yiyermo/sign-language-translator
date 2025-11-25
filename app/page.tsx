@@ -218,7 +218,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* Modal de instrucciones (se muestra solo la primera vez) */}
+      {/* Modal de instrucciones (se muestra solo la primera vez.) */}
       <Instructions />
     </div>
   );
