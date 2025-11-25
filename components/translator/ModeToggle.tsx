@@ -1,10 +1,8 @@
-// components/translator/ModeToggle.tsx
 "use client"
 
 import { Button } from "@/components/ui/button"
 import { Hand, Type } from "lucide-react"
 import type { Mode } from "@/hooks/useTranslatorState"
-import { Card, CardContent } from "../ui/card"
 
 type Props = {
   mode: Mode
@@ -16,37 +14,42 @@ export default function ModeToggle({ mode, onChange }: Props) {
   const isTextToSigns = mode === "text-to-signs"
 
   return (
-    <Card className="border-border bg-card">
-      <CardContent className="p-4 md:p-5 space-y-3">
-        <p className="text-xs md:text-sm text-muted-foreground text-center">
-          Elige cómo quieres usar el traductor: escribir texto para ver el deletreo
-          en señas, o practicar el deletreo construyendo palabras con el teclado.
-        </p>
+    <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+      {/* Etiqueta pequeña (opcional) */}
+      <span className="text-[11px] text-muted-foreground">
+        Modo de uso
+      </span>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center">
-          <Button
-            variant={isSignsToText ? "default" : "outline"}
-            size="lg"
-            onClick={() => onChange("signs-to-text")}
-            className="w-full sm:w-auto min-h-[52px] text-sm md:text-base justify-center"
-            aria-pressed={isSignsToText}
-          >
-            <Hand className="mr-2 h-5 w-5" />
-            Señas a texto
-          </Button>
+      {/* Toggle tipo “pastilla” */}
+      <div className="inline-flex items-center rounded-full border bg-card p-1 shadow-sm">
+        <Button
+          type="button"
+          variant={isSignsToText ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onChange("signs-to-text")}
+          className={`rounded-full px-3 py-1 text-xs md:text-sm flex items-center gap-1 ${
+            isSignsToText ? "" : "hover:bg-muted/70"
+          }`}
+          aria-pressed={isSignsToText}
+        >
+          <Hand className="h-4 w-4" />
+          <span>Señas a texto</span>
+        </Button>
 
-          <Button
-            variant={isTextToSigns ? "default" : "outline"}
-            size="lg"
-            onClick={() => onChange("text-to-signs")}
-            className="w-full sm:w-auto min-h-[52px] text-sm md:text-base justify-center"
-            aria-pressed={isTextToSigns}
-          >
-            <Type className="mr-2 h-5 w-5" />
-            Texto a señas
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        <Button
+          type="button"
+          variant={isTextToSigns ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onChange("text-to-signs")}
+          className={`rounded-full px-3 py-1 text-xs md:text-sm flex items-center gap-1 ${
+            isTextToSigns ? "" : "hover:bg-muted/70"
+          }`}
+          aria-pressed={isTextToSigns}
+        >
+          <Type className="h-4 w-4" />
+          <span>Texto a señas</span>
+        </Button>
+      </div>
+    </div>
   )
 }
