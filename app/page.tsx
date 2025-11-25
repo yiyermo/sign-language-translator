@@ -129,23 +129,32 @@ export default function HomePage() {
       {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         {/* Encabezado de la página */}
-        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl md:text-4xl font-bold">
-              Manos que Hablan
-            </h1>
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 py-4">
+        {/* IZQUIERDA — TÍTULO + SUBTÍTULO DECORATIVO */}
+        <div className="space-y-2">
+          <h1 className="
+            text-4xl md:text-5xl font-extrabold tracking-tight 
+            bg-linear-to-r from-indigo-600 to-pink-600 
+            text-transparent bg-clip-text
+            drop-shadow-sm
+          ">
+            Manos que Hablan
+          </h1>
 
-            <p className="text-sm text-muted-foreground max-w-xl">
-              Traductor de Lengua de Señas Chilena (deletreo). Escribe texto
-              para verlo en el abecedario manual, o arma palabras con señas
-              usando el teclado visual.
-            </p>
-          </div>
+          <p className="
+            text-xs md:text-sm text-muted-foreground uppercase tracking-[0.15em]
+            bg-muted/30 inline-block px-3 py-1 rounded-full border border-border
+          ">
+            Lengua de Señas Chilena · LSCh
+          </p>
+        </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <ModeToggle mode={mode} onChange={handleModeChange} />
-          </div>
-        </header>
+        {/* DERECHA — TOGGLE DE MODO (lo que ya tienes) */}
+        <div className="flex justify-end">
+          <ModeToggle mode={mode} onChange={handleModeChange} />
+        </div>
+      </header>
+
 
         {/* Layout principal: entrada / salida */}
         <section className="grid md:grid-cols-[1.2fr_1fr] gap-6 items-start">
@@ -175,14 +184,13 @@ export default function HomePage() {
 
           {/* Columna derecha: resultados + barra de estado + guardar */}
           <div className="space-y-4">
-            <div className="bg-card border rounded-xl p-4 md:p-5">
+            <div className="bg-card border rounded-xl p-4 md:p-5 overflow-hidden">
               <ResultsSection
                 mode={mode}
                 text={shownText}
                 onClear={handleClear}
               />
 
-              {/* Botón para guardar en historial */}
               <SaveTranslationButton
                 disabled={!shownText}
                 loading={isSaving}
@@ -199,6 +207,7 @@ export default function HomePage() {
               )}
             </div>
           </div>
+
         </section>
       </main>
     </div>

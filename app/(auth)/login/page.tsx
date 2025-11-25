@@ -2,18 +2,25 @@
 
 import { useState, useEffect, FormEvent } from "react"
 import { useRouter } from "next/navigation"
+import { Eye, EyeOff } from "lucide-react"
 import { supabase } from "@/utils/supabase"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+
+type FieldErrors = {
+  email?: string
+  password?: string
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   // Si ya está logueado, ir a "/"
   useEffect(() => {
@@ -24,20 +31,43 @@ export default function LoginPage() {
     check()
   }, [router])
 
+  const validate = () => {
+    const errors: FieldErrors = {}
+
+    if (!email.trim()) {
+      errors.email = "El correo es obligatorio."
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Ingresa un correo válido."
+    }
+
+    if (!password.trim()) {
+      errors.password = "La contraseña es obligatoria."
+    } else if (password.length < 6) {
+      errors.password = "La contraseña debe tener al menos 6 caracteres."
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
 
+    const isValid = validate()
+    if (!isValid) return
+
+    setLoading(true)
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     })
 
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      setError("Correo o contraseña incorrectos. Inténtalo nuevamente.")
       return
     }
 
@@ -45,55 +75,132 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="text-center text-2xl">Iniciar sesión</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Correo</Label>
-            <Input 
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required 
-            />
-          </div>
+    <div className="space-y-4">
+      {/* Encabezado de la vista de login */}
+      <div className="space-y-1 text-center">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Iniciar sesión
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Ingresa tu correo y contraseña para acceder a Manos que Hablan.
+        </p>
+      </div>
 
-          <div>
-            <Label htmlFor="password">Contraseña</Label>
-            <Input 
+      {/* Error general de login */}
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Campo correo */}
+        <div className="space-y-1">
+          <Label htmlFor="email">Correo electrónico</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              if (fieldErrors.email) {
+                setFieldErrors((prev) => ({ ...prev, email: undefined }))
+              }
+            }}
+            required
+            aria-invalid={!!fieldErrors.email}
+            aria-describedby={fieldErrors.email ? "email-error" : undefined}
+            className={
+              fieldErrors.email
+                ? "border-red-500 focus-visible:ring-red-500"
+                : ""
+            }
+          />
+          {fieldErrors.email && (
+            <p id="email-error" className="text-xs text-red-600">
+              {fieldErrors.email}
+            </p>
+          )}
+        </div>
+
+        {/* Campo contraseña con ojo Ver/Ocultar */}
+        <div className="space-y-1">
+          <Label htmlFor="password">Contraseña</Label>
+          <div className="relative">
+            <Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (fieldErrors.password) {
+                  setFieldErrors((prev) => ({ ...prev, password: undefined }))
+                }
+              }}
+              required
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={
+                fieldErrors.password ? "password-error" : undefined
+              }
+              className={
+                fieldErrors.password
+                  ? "border-red-500 focus-visible:ring-red-500 pr-10"
+                  : "pr-10"
+              }
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
           </div>
+          {fieldErrors.password && (
+            <p id="password-error" className="text-xs text-red-600">
+              {fieldErrors.password}
+            </p>
+          )}
+        </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading}
+        >
+          {loading ? "Ingresando..." : "Ingresar"}
+        </Button>
+      </form>
 
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? "Ingresando..." : "Ingresar"}
-          </Button>
-        </form>
+      {/* Crear cuenta con efecto hover */}
+      <div className="mt-4 border-t pt-4 space-y-2">
+        <p className="text-center text-xs text-muted-foreground">
+          ¿Aún no tienes cuenta?
+        </p>
 
-        <p className="text-center text-sm mt-4">
-          ¿No tienes cuenta?{" "}
-          <button
-            className="text-primary underline"
+        <div className="group relative">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md"
             onClick={() => router.push("/register")}
           >
             Crear cuenta
-          </button>
-        </p>
-      </CardContent>
-    </Card>
+          </Button>
+
+          {/* "Placeholder" que aparece al pasar el mouse */}
+          <p className="pointer-events-none mt-1 text-[11px] text-muted-foreground text-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            Crea tu cuenta para guardar tu historial de traducciones ✋🤟
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }

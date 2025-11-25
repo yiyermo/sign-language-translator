@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ShieldCheck } from "lucide-react"
 
 import { supabase } from "@/utils/supabase"
 import { Button } from "@/components/ui/button"
@@ -120,21 +120,57 @@ export default function RegisterPage() {
     }
   }
 
+  // 💪 Medidor de fortaleza mejorado
   const getPasswordStrength = (password: string) => {
     if (!password) return ""
+
+    const lower = password.toLowerCase()
+
+    // Patrones muy comunes o fácilmente adivinables
+    const commonWeakPatterns = [
+      "password",
+      "123456",
+      "12345678",
+      "123456789",
+      "qwerty",
+      "abc123",
+      "hola123",
+      "hola1234",
+      "hola12345",
+    ]
+
+    if (
+      commonWeakPatterns.some((pattern) =>
+        lower.includes(pattern)
+      )
+    ) {
+      return "Débil"
+    }
+
     if (password.length < 8) return "Débil"
 
-    const hasLetters = /[A-Za-z]/.test(password)
+    const hasLower = /[a-z]/.test(password)
+    const hasUpper = /[A-Z]/.test(password)
     const hasNumbers = /\d/.test(password)
     const hasSymbols = /[^A-Za-z0-9]/.test(password)
 
-    if (hasLetters && hasNumbers && hasSymbols && password.length >= 12) {
+    let score = 0
+    if (hasLower) score++
+    if (hasUpper) score++
+    if (hasNumbers) score++
+    if (hasSymbols) score++
+    if (password.length >= 12) score++
+
+    if (score >= 4 && password.length >= 12) {
       return "Muy fuerte"
     }
-    if (hasLetters && hasNumbers) {
+    if (score >= 3) {
       return "Fuerte"
     }
-    return "Media"
+    if (score >= 2) {
+      return "Media"
+    }
+    return "Débil"
   }
 
   const strength = getPasswordStrength(passwordValue)
@@ -268,7 +304,9 @@ export default function RegisterPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      onClick={() =>
+                        setShowConfirmPassword((prev) => !prev)
+                      }
                       className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
                       tabIndex={-1}
                     >
@@ -285,35 +323,68 @@ export default function RegisterPage() {
             )}
           />
 
-          {/* TERMS */}
           <FormField
             control={form.control}
             name="acceptTerms"
             render={({ field }) => (
-              <FormItem className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <Label className="text-sm">
-                      Acepto la política de privacidad y términos de uso.
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Este proyecto es académico y se mejorará con el tiempo.
-                      Tus datos se usan solo para tu cuenta.
-                    </p>
+              <FormItem
+                className="
+                  space-y-2 rounded-xl 
+                  border border-primary/70 bg-primary/10 
+                  px-4 py-3 shadow-sm
+                "
+              >
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
+
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                          className="mt-0.5 h-4 w-4 border-primary/70 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                        />
+                      </FormControl>
+
+                      <div className="space-y-1 text-sm">
+                        <p className="font-semibold">
+                          Acepto la{" "}
+                          <button
+                            type="button"
+                            className="text-primary underline underline-offset-2"
+                          >
+                            política de privacidad
+                          </button>{" "}
+                          y los{" "}
+                          <button
+                            type="button"
+                            className="text-primary underline underline-offset-2"
+                          >
+                            términos de uso
+                          </button>
+                          .
+                        </p>
+
+                        <p className="text-xs text-muted-foreground">
+                          Manos que Hablan es un proyecto académico. Tus datos se utilizan
+                          solo para tu cuenta y para mejorar la experiencia del traductor.
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      Obligatorio para crear tu cuenta
+                    </span>
                   </div>
                 </div>
+
                 <FormMessage />
               </FormItem>
             )}
           />
+
+
 
           {/* BOTÓN */}
           <Button
@@ -335,4 +406,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-

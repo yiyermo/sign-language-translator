@@ -1,7 +1,7 @@
+// components/translator/ModeToggle.tsx
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Hand, Type } from "lucide-react"
 import type { Mode } from "@/hooks/useTranslatorState"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,7 @@ export default function ModeToggle({ mode, onChange }: Props) {
   const isTextToSigns = mode === "text-to-signs"
 
   return (
+<<<<<<< HEAD
     <Card className="bg-card/80 border border-border/40 rounded-2xl shadow-sm backdrop-blur-sm">
       <CardContent className="p-5 space-y-4">
         
@@ -38,9 +39,9 @@ export default function ModeToggle({ mode, onChange }: Props) {
             className={cn(
               "w-full sm:w-auto min-h-[52px] text-sm md:text-base rounded-xl",
               "flex items-center justify-center gap-2 transition-all",
-              "hover:-translate-y-[2px] active:scale-[0.97]",
+              "hover:-translate-y-0.5 active:scale-[0.97]",
               isSignsToText &&
-                "bg-gradient-to-br from-primary/90 to-primary text-primary-foreground shadow-md border-primary"
+                "bg-linear-to-br from-primary/90 to-primary text-primary-foreground shadow-md border-primary"
             )}
           >
             <Hand
@@ -61,9 +62,9 @@ export default function ModeToggle({ mode, onChange }: Props) {
             className={cn(
               "w-full sm:w-auto min-h-[52px] text-sm md:text-base rounded-xl",
               "flex items-center justify-center gap-2 transition-all",
-              "hover:-translate-y-[2px] active:scale-[0.97]",
+              "hover:-translate-y-0.5 active:scale-[0.97]",
               isTextToSigns &&
-                "bg-gradient-to-br from-secondary/70 to-secondary text-secondary-foreground shadow-md border-secondary"
+                "bg-linear-to-br from-secondary/70 to-secondary text-secondary-foreground shadow-md border-secondary"
             )}
           >
             <Type
@@ -78,5 +79,44 @@ export default function ModeToggle({ mode, onChange }: Props) {
         </div>
       </CardContent>
     </Card>
+=======
+    <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+      {/* Etiqueta pequeña, si quieres la puedes borrar */}
+      <span className="text-[11px] text-muted-foreground">
+        Modo de uso
+      </span>
+
+      {/* Toggle tipo “pastilla” */}
+      <div className="inline-flex items-center rounded-full border bg-card p-1 shadow-sm">
+        <Button
+          type="button"
+          variant={isSignsToText ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onChange("signs-to-text")}
+          className={`rounded-full px-3 py-1 text-xs md:text-sm flex items-center gap-1 ${
+            isSignsToText ? "" : "hover:bg-muted/70"
+          }`}
+          aria-pressed={isSignsToText}
+        >
+          <Hand className="h-4 w-4" />
+          <span>Señas a texto</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant={isTextToSigns ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onChange("text-to-signs")}
+          className={`rounded-full px-3 py-1 text-xs md:text-sm flex items-center gap-1 ${
+            isTextToSigns ? "" : "hover:bg-muted/70"
+          }`}
+          aria-pressed={isTextToSigns}
+        >
+          <Type className="h-4 w-4" />
+          <span>Texto a señas</span>
+        </Button>
+      </div>
+    </div>
+>>>>>>> b5d1a6a (Fameando aura)
   )
 }
