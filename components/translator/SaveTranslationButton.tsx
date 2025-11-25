@@ -23,53 +23,58 @@ export const SaveTranslationButton: FC<SaveTranslationButtonProps> = ({
 
     await onClick()
 
-    // Mostrar badge de éxito por 2.5 segundos
+    // Mostrar notificación flotante ✨
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
 
   return (
-    <div className="flex items-center justify-end mt-3 gap-3">
-
-      {/* Badge de éxito */}
+    <>
+      {/* ========= TOAST FLOTANTE ========= */}
       {saved && (
-        <span
+        <div
           className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
-            "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300",
-            "animate-in fade-in slide-in-from-right duration-300"
+            "fixed right-5 bottom-6 z-50",
+            "rounded-xl px-4 py-3 shadow-xl",
+            "bg-emerald-600 text-white font-medium text-sm",
+            "flex items-center gap-2",
+            "animate-in fade-in slide-in-from-bottom-5 duration-300"
           )}
         >
-          <CheckCircle className="h-4 w-4" />
-          Guardado ✔️
-        </span>
+          <CheckCircle className="h-5 w-5 text-white" />
+          <span>Traducción guardada con éxito</span>
+        </div>
       )}
 
-      {/* Botón */}
-      <Button
-        type="button"
-        size="sm"
-        onClick={handleSave}
-        disabled={disabled || loading}
-        aria-busy={loading}
-        className={cn(
-          "flex items-center gap-2 rounded-lg transition-all",
-          "hover:-translate-y-[1px] active:scale-95",
-          loading && "cursor-wait"
-        )}
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Guardando...
-          </>
-        ) : (
-          <>
-            <Save className="h-4 w-4" />
-            Guardar en historial
-          </>
-        )}
-      </Button>
-    </div>
+      {/* ========= BOTÓN MEJORADO ========= */}
+      <div className="flex items-center justify-end mt-3">
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleSave}
+          disabled={disabled || loading}
+          aria-busy={loading}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2",
+            "transition-all duration-200",
+            "hover:shadow-md hover:-translate-y-px",
+            "active:scale-[0.97]",
+            loading && "cursor-wait opacity-90"
+          )}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Guardar en historial
+            </>
+          )}
+        </Button>
+      </div>
+    </>
   )
 }

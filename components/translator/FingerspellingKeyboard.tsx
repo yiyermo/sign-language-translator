@@ -41,7 +41,7 @@ function FingerspellingKeyboardComponent({
           title={`Letra ${letter}`}
           className={cn(
             "group flex flex-col items-center justify-center gap-2 h-auto py-3 px-2",
-            "rounded-2xl border border-border bg-gradient-to-b from-card/80 to-card",
+            "rounded-2xl border border-border bg-linear-to-b from-card/80 to-card",
             "shadow-sm hover:shadow-md dark:shadow-none hover:from-accent/20 hover:to-accent/5",
             "transition-all duration-200 hover:-translate-y-1 active:scale-95",
             "focus-visible:ring-2 focus-visible:ring-primary",

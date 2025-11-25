@@ -47,7 +47,6 @@ export default function HomePage() {
   // Cambiar modo
   const handleModeChange = useCallback(
     (newMode: typeof mode) => {
-      // registrar evento de cambio de modo
       logEvent("mode_changed", {
         from: mode,
         to: newMode,
@@ -56,9 +55,11 @@ export default function HomePage() {
     },
     [setMode, mode, logEvent]
   );
+
   const handleGoToProfile = useCallback(() => {
-  router.push("/profile");
-}, [router]);
+    router.push("/profile");
+  }, [router]);
+
   // Limpiar texto
   const handleClear = useCallback(() => {
     setInputText("");
@@ -79,7 +80,7 @@ export default function HomePage() {
     if (mode === "text-to-signs") {
       await logTranslation({
         inputText: inputText || shownText,
-        outputText: undefined, // las señas son visuales, guardamos solo el texto de entrada
+        outputText: undefined,
         type: "text_to_sign",
       });
     } else {
@@ -106,17 +107,22 @@ export default function HomePage() {
   }
 
   if (status === "unauthenticated" || status === "forbidden") {
-    // Ya se redirigió en el hook
     return null;
   }
 
   // ✅ Usuario autenticado
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground relative">
+      {/* Fondo decorativo sutil */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -top-24 left-10 h-72 w-72 rounded-full bg-indigo-200/40 blur-3xl" />
+        <div className="absolute top-32 right-0 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
+      </div>
+
       {/* HEADER GENERAL */}
       <AppHeader
         appLabel="Manos que Hablan · Traductor LSCh"
-        subtitle="Traductor de Lengua de Señas Chilena"
+        subtitle="Lengua de Señas Chilena"
         userEmail={userEmail}
         userName={profile?.full_name ?? null}
         onLogout={signOut}
@@ -127,40 +133,51 @@ export default function HomePage() {
       />
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+      <main className="max-w-6xl lg:max-w-7xl mx-auto px-4 py-8 md:py-10 space-y-8">
         {/* Encabezado de la página */}
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 py-4">
-        {/* IZQUIERDA — TÍTULO + SUBTÍTULO DECORATIVO */}
-        <div className="space-y-2">
-          <h1 className="
-            text-4xl md:text-5xl font-extrabold tracking-tight 
-            bg-linear-to-r from-indigo-600 to-pink-600 
-            text-transparent bg-clip-text
-            drop-shadow-sm
-          ">
-            Manos que Hablan
-          </h1>
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          {/* IZQUIERDA — TÍTULO + SUBTÍTULO DECORATIVO */}
+          <div className="space-y-3">
+            <div>
+              <h1
+                className="
+                  text-4xl md:text-5xl font-extrabold tracking-tight 
+                  bg-linear-to-r from-indigo-600 via-purple-600 to-pink-600 
+                  text-transparent bg-clip-text drop-shadow-sm
+                "
+              >
+                Manos que Hablan
+              </h1>
+              <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-xl">
+                Explora la Lengua de Señas Chilena (LSCh) a través de deletreo con
+                texto e imágenes. Sin cámara. Sin complicaciones.
+              </p>
+            </div>
 
-          <p className="
-            text-xs md:text-sm text-muted-foreground uppercase tracking-[0.15em]
-            bg-muted/30 inline-block px-3 py-1 rounded-full border border-border
-          ">
-            Lengua de Señas Chilena · LSCh
-          </p>
-        </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full bg-card/80 border px-3 py-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Sesión activa para {profile?.full_name ?? userEmail}
+              </span>
+              {sessionId && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-card/60 border px-3 py-1">
+                  ID sesión: <span className="font-mono text-[10px]">{sessionId.slice(0, 10)}…</span>
+                </span>
+              )}
+            </div>
+          </div>
 
-        {/* DERECHA — TOGGLE DE MODO (lo que ya tienes) */}
-        <div className="flex justify-end">
-          <ModeToggle mode={mode} onChange={handleModeChange} />
-        </div>
-      </header>
-
+          {/* DERECHA — TOGGLE DE MODO */}
+          <div className="flex justify-start md:justify-end">
+            <ModeToggle mode={mode} onChange={handleModeChange} />
+          </div>
+        </header>
 
         {/* Layout principal: entrada / salida */}
-        <section className="grid md:grid-cols-[1.2fr_1fr] gap-6 items-start">
-          {/* Columna izquierda: entrada + instrucciones */}
+        <section className="grid md:grid-cols-[1.15fr_0.95fr] gap-6 items-start">
+          {/* Columna izquierda: entrada */}
           <div className="space-y-4">
-            <div className="bg-card border rounded-xl p-4 md:p-5">
+            <div className="bg-card/80 border rounded-2xl p-4 md:p-5 shadow-sm backdrop-blur-sm">
               {mode === "text-to-signs" ? (
                 <TextToSignsSection
                   value={inputText}
@@ -176,40 +193,33 @@ export default function HomePage() {
                 />
               )}
             </div>
-
-            <div className="bg-muted/60 border rounded-xl p-4">
-              <Instructions />
-            </div>
           </div>
 
           {/* Columna derecha: resultados + barra de estado + guardar */}
           <div className="space-y-4">
-            <div className="bg-card border rounded-xl p-4 md:p-5 overflow-hidden">
+            <div className="bg-card/80 border rounded-2xl p-4 md:p-5 shadow-sm backdrop-blur-sm overflow-hidden">
               <ResultsSection
                 mode={mode}
                 text={shownText}
                 onClear={handleClear}
               />
 
-              <SaveTranslationButton
-                disabled={!shownText}
-                loading={isSaving}
-                onClick={handleSaveTranslation}
-              />
+              <div className="mt-3 flex justify-end">
+                <SaveTranslationButton
+                  disabled={!shownText}
+                  loading={isSaving}
+                  onClick={handleSaveTranslation}
+                />
+              </div>
             </div>
 
-            <div className="bg-muted/60 border rounded-xl p-3">
-              <StatusBar isRecording={false} mode={mode} />
-              {sessionId && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Sesión de uso activa · ID: {sessionId.slice(0, 8)}…
-                </p>
-              )}
-            </div>
+            <StatusBar isRecording={false} mode={mode} />
           </div>
-
         </section>
       </main>
+
+      {/* Modal de instrucciones (se muestra solo la primera vez) */}
+      <Instructions />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { Languages, Hand, Type } from "lucide-react"
+import { Languages, Hand, Type, Sparkles, CircleDot } from "lucide-react"
 import type { Mode } from "@/hooks/useTranslatorState"
 import { cn } from "@/lib/utils"
 
@@ -16,86 +16,102 @@ export default function StatusBar({
   mode,
   languageLabel = "Español (CL)",
 }: Props) {
-  const modeLabel =
-    mode === "signs-to-text" ? "Señas → Texto" : "Texto → Señas"
+  const isSignsToText = mode === "signs-to-text"
+  const modeLabel = isSignsToText ? "Señas → Texto" : "Texto → Señas"
+
+  const tips = isSignsToText
+    ? [
+        "Usa el teclado de manos para elegir cada letra.",
+        "Observa cómo el texto se construye en el panel derecho.",
+        "Si te equivocas, usa borrar o Limpiar para empezar de nuevo.",
+      ]
+    : [
+        "Escribe una palabra o frase breve para comenzar.",
+        "Desplázate horizontalmente para ver todas las señas si son muchas letras.",
+        "Copia el texto si quieres guardarlo o compartirlo.",
+      ]
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/40 bg-card/70 backdrop-blur-sm",
-        "shadow-sm px-3 py-2 flex flex-col gap-2",
-        "animate-in fade-in duration-150"
+        "rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm",
+        "shadow-sm px-3 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between",
+        "animate-in fade-in-0 zoom-in-95 duration-150"
       )}
     >
-
-      {/* ============================
-         VERSION COMPACTA (MOBILE)
-         Visible SOLO en pantallas < 640px
-      ============================= */}
-      <div className="flex flex-col gap-1 sm:hidden">
-
-        {/* Badges Mini */}
-        <div className="flex flex-wrap justify-center gap-1">
-          <Badge
-            variant="outline"
-            className="gap-1 px-1.5 py-0.5 text-[10px] font-medium"
-          >
-            <Hand className="h-3 w-3 opacity-60" />
-            Señas
-          </Badge>
-
-          <Badge
-            variant="outline"
-            className="gap-1 px-1.5 py-0.5 text-[10px] font-medium"
-          >
-            <Type className="h-3 w-3 opacity-60" />
-            {modeLabel}
-          </Badge>
-
-          <Badge
-            variant="outline"
-            className="gap-1 px-1.5 py-0.5 text-[10px] font-medium"
-          >
-            <Languages className="h-3 w-3 opacity-60" />
-            {languageLabel}
-          </Badge>
+      {/* LADO IZQUIERDO: ESTADO / MODO */}
+      <div className="flex items-start gap-3">
+        {/* Icono principal */}
+        <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-pink-500 text-white shadow-sm">
+          {isSignsToText ? (
+            <Hand className="h-5 w-5" />
+          ) : (
+            <Type className="h-5 w-5" />
+          )}
         </div>
 
-        <p className="text-[10px] text-center text-muted-foreground leading-tight">
-          Sin cámara. Deletreo mediante teclado visual.
-        </p>
-      </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Modo actual
+            </span>
 
-      {/* ============================
-         VERSION COMPLETA (DESKTOP)
-         Visible SOLO en pantallas ≥ 640px
-      ============================= */}
-      <div className="hidden sm:flex flex-col gap-2">
+            <Badge
+              variant="outline"
+              className="gap-1 px-2 py-0.5 text-[11px] font-medium"
+            >
+              <Sparkles className="h-3 w-3 text-yellow-500" />
+              {modeLabel}
+            </Badge>
 
-        <div className="flex flex-wrap justify-center gap-2">
-          <Badge variant="outline" className="gap-1 px-2 py-1">
-            <Hand className="h-4 w-4 opacity-70" />
-            Interacción: Teclado de señas + imágenes
-          </Badge>
+            <Badge
+              variant="outline"
+              className="gap-1 px-2 py-0.5 text-[11px] font-medium"
+            >
+              <Languages className="h-3 w-3 opacity-70" />
+              {languageLabel}
+            </Badge>
 
-          <Badge variant="outline" className="gap-1 px-2 py-1">
-            <Type className="h-4 w-4 opacity-70" />
-            Modo: {modeLabel}
-          </Badge>
+            <Badge
+              variant={isRecording ? "default" : "outline"}
+              className={cn(
+                "gap-1 px-2 py-0.5 text-[11px] font-medium",
+                isRecording && "bg-emerald-600 text-white border-emerald-600"
+              )}
+            >
+              <CircleDot
+                className={cn(
+                  "h-3 w-3",
+                  isRecording ? "animate-pulse" : "opacity-60"
+                )}
+              />
+              {isRecording ? "Grabando..." : "Listo para usar"}
+            </Badge>
+          </div>
 
-          <Badge variant="outline" className="gap-1 px-2 py-1">
-            <Languages className="h-4 w-4 opacity-70" />
-            Idioma: {languageLabel}
-          </Badge>
+          <p className="text-[11px] text-muted-foreground">
+            {isSignsToText
+              ? "Construye palabras usando el teclado visual de señas."
+              : "Escribe texto y obsérvalo deletreado en imágenes de señas."}
+          </p>
         </div>
-
-        <p className="text-[11px] text-center text-muted-foreground">
-          Este traductor funciona sin cámara. El deletreo se realiza mediante texto
-          y un teclado visual basado en imágenes.
-        </p>
-
       </div>
 
+      {/* LADO DERECHO: CONSEJOS RÁPIDOS */}
+      <div className="border-t pt-2 mt-2 md:mt-0 md:border-t-0 md:border-l md:pl-3 md:pt-0 border-border/40">
+        <p className="text-[11px] font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+          <Sparkles className="h-3 w-3 text-indigo-500" />
+          Tips para este modo
+        </p>
+        <ul className="space-y-1 text-[11px] md:text-xs text-muted-foreground">
+          {tips.map((tip, idx) => (
+            <li key={idx} className="flex gap-1.5">
+              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400/80 shrink-0" />
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

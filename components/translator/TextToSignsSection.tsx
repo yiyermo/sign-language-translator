@@ -41,7 +41,7 @@ export default function TextToSignsSection({
           onChange={(e) => onChange(e.target.value)}
           placeholder="Escribe aquí para ver la traducción en señas…"
           className={cn(
-            "min-h-[160px] rounded-xl",
+            "min-h-40 rounded-xl",
             "transition-all duration-300",
             "focus-visible:ring-2 focus-visible:ring-primary/50",
             "shadow-inner"
