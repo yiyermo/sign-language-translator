@@ -90,18 +90,6 @@ export default function ResultsSection({
                         {/* Este div puede ser más ancho que el card, 
                             pero el overflow queda contenido aquí */}
                         <div className="inline-flex items-center gap-3">
-                          {/* Palabra completa siempre en horizontal */}
-                          <span
-                            className={`
-                              shrink-0 inline-block px-3 py-1
-                              font-bold tracking-wide uppercase
-                              whitespace-nowrap rounded-md shadow-sm
-                              bg-card
-                              ${sizeClass}
-                            `}
-                          >
-                            {w.word}
-                          </span>
 
                           {/* Letras en una sola fila */}
                           <div className="flex items-center gap-2">
