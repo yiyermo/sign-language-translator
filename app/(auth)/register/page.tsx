@@ -24,6 +24,33 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 
+// 🔐 Patrones muy débiles que queremos evitar
+const commonWeakPatterns = [
+  "password",
+  "123456",
+  "12345678",
+  "123456789",
+  "qwerty",
+  "abc123",
+  "hola123",
+  "hola1234",
+  "hola12345",
+]
+
+// 🔐 Esquema base de contraseña: fuerte y con caracteres especiales
+const passwordSchema = z
+  .string()
+  .min(12, "La contraseña debe tener al menos 12 caracteres.")
+  .max(128, "La contraseña es demasiado larga.")
+  .regex(/[a-z]/, "Debe incluir al menos una letra minúscula (a-z).")
+  .regex(/[A-Z]/, "Debe incluir al menos una letra mayúscula (A-Z).")
+  .regex(/\d/, "Debe incluir al menos un número (0-9).")
+  .regex(
+    /[^A-Za-z0-9]/,
+    "Debe incluir al menos un carácter especial (.,-_!@#$%^&* etc.)."
+  )
+  .regex(/^\S+$/, "No debe contener espacios en blanco.")
+
 const registerSchema = z
   .object({
     full_name: z
@@ -34,13 +61,7 @@ const registerSchema = z
       .string()
       .min(1, "El correo es obligatorio.")
       .email("Ingresa un correo válido."),
-    password: z
-      .string()
-      .min(8, "La contraseña debe tener al menos 8 caracteres.")
-      .regex(
-        /^(?=.*[A-Za-z])(?=.*\d).+$/,
-        "La contraseña debe incluir al menos una letra y un número."
-      ),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, "Debes confirmar la contraseña."),
     acceptTerms: z
       .boolean()
@@ -48,9 +69,45 @@ const registerSchema = z
         message: "Debes aceptar la política de privacidad y términos de uso.",
       }),
   })
+  // 📌 Contraseñas iguales
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Las contraseñas no coinciden.",
+  })
+  // 📌 Validaciones adicionales sobre la contraseña
+  .superRefine((data, ctx) => {
+    const pass = data.password.toLowerCase()
+    const name = data.full_name.toLowerCase()
+    const email = data.email.toLowerCase()
+    const emailLocal = email.split("@")[0] ?? ""
+
+    // Evitar patrones muy débiles
+    if (commonWeakPatterns.some((p) => pass.includes(p))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message:
+          "La contraseña es demasiado predecible. Evita secuencias como '123456' o 'hola123'.",
+      })
+    }
+
+    // Evitar que contenga el nombre o el correo
+    const firstName = name.split(" ")[0] ?? ""
+    if (firstName && pass.includes(firstName)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "La contraseña no debe contener tu nombre.",
+      })
+    }
+
+    if (emailLocal && pass.includes(emailLocal)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "La contraseña no debe contener tu correo electrónico.",
+      })
+    }
   })
 
 type RegisterFormValues = z.infer<typeof registerSchema>
@@ -112,7 +169,7 @@ export default function RegisterPage() {
       console.error(err)
       toast({
         title: "Error al crear la cuenta",
-        description: err?.message ?? "Ocurrió un error inesperado.",
+          description: err?.message ?? "Ocurrió un error inesperado.",
         variant: "destructive",
       })
     } finally {
@@ -120,34 +177,15 @@ export default function RegisterPage() {
     }
   }
 
-  // 💪 Medidor de fortaleza mejorado
+  // 💪 Medidor de fortaleza alineado con las nuevas reglas
   const getPasswordStrength = (password: string) => {
     if (!password) return ""
 
     const lower = password.toLowerCase()
 
-    // Patrones muy comunes o fácilmente adivinables
-    const commonWeakPatterns = [
-      "password",
-      "123456",
-      "12345678",
-      "123456789",
-      "qwerty",
-      "abc123",
-      "hola123",
-      "hola1234",
-      "hola12345",
-    ]
-
-    if (
-      commonWeakPatterns.some((pattern) =>
-        lower.includes(pattern)
-      )
-    ) {
+    if (commonWeakPatterns.some((pattern) => lower.includes(pattern))) {
       return "Débil"
     }
-
-    if (password.length < 8) return "Débil"
 
     const hasLower = /[a-z]/.test(password)
     const hasUpper = /[A-Z]/.test(password)
@@ -159,15 +197,16 @@ export default function RegisterPage() {
     if (hasUpper) score++
     if (hasNumbers) score++
     if (hasSymbols) score++
-    if (password.length >= 12) score++
+    if (password.length >= 14) score++
+    if (password.length >= 18) score++
 
-    if (score >= 4 && password.length >= 12) {
+    if (score >= 5 && password.length >= 18) {
       return "Muy fuerte"
     }
-    if (score >= 3) {
+    if (score >= 4 && password.length >= 14) {
       return "Fuerte"
     }
-    if (score >= 2) {
+    if (score >= 3 && password.length >= 12) {
       return "Media"
     }
     return "Débil"
@@ -262,7 +301,8 @@ export default function RegisterPage() {
                   </div>
                 </FormControl>
                 <FormDescription>
-                  Mínimo 8 caracteres, con al menos una letra y un número.
+                  Mínimo 12 caracteres, con mayúsculas, minúsculas, números y al menos
+                  un carácter especial. No puede contener tu nombre ni tu correo.
                 </FormDescription>
                 {strength && (
                   <p className="text-xs mt-1">
@@ -323,6 +363,7 @@ export default function RegisterPage() {
             )}
           />
 
+          {/* ACEPTAR TÉRMINOS / PRIVACIDAD */}
           <FormField
             control={form.control}
             name="acceptTerms"
@@ -342,7 +383,9 @@ export default function RegisterPage() {
                       <FormControl>
                         <Checkbox
                           checked={field.value}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
                           className="mt-0.5 h-4 w-4 border-primary/70 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                         />
                       </FormControl>
@@ -350,19 +393,19 @@ export default function RegisterPage() {
                       <div className="space-y-1 text-sm">
                         <p className="font-semibold">
                           Acepto la{" "}
-                          <button
-                            type="button"
+                          <Link
+                            href="/privacy"
                             className="text-primary underline underline-offset-2"
                           >
                             política de privacidad
-                          </button>{" "}
+                          </Link>{" "}
                           y los{" "}
-                          <button
-                            type="button"
+                          <Link
+                            href="/terms"
                             className="text-primary underline underline-offset-2"
                           >
                             términos de uso
-                          </button>
+                          </Link>
                           .
                         </p>
 
@@ -383,8 +426,6 @@ export default function RegisterPage() {
               </FormItem>
             )}
           />
-
-
 
           {/* BOTÓN */}
           <Button

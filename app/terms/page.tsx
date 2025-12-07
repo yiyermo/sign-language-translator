@@ -1,325 +1,356 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 
 export default function TermsPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Link href="/" className="inline-flex items-center gap-2">
+          <img
+            src="/Logo.png"
+            alt="Manos que Hablan Logo"
+            className="h-14 w-auto hover:opacity-90 transition"
+          />
+        </Link>
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Términos de Uso</h1>
+        <h1 className="text-4xl font-bold mb-2">Términos de Uso de Manos que Hablan</h1>
         <p className="text-muted-foreground">
-          Última actualización: {new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
+          Última actualización:{" "}
+          {new Date().toLocaleDateString("es-ES", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Estos Términos de Uso regulan el acceso y utilización de la plataforma Manos que
+          Hablan y su traductor de Lengua de Señas Chilena. Al usar el sitio, declaras haber
+          leído, entendido y aceptado estos términos.
         </p>
       </div>
 
+      {/* 1. ACEPTACIÓN */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>1. Aceptación de los Términos</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground space-y-3">
+        <CardContent className="space-y-3 text-muted-foreground">
           <p>
-            Bienvenido a Yiyermo Sign Language Translator. Al acceder y utilizar esta plataforma, aceptas estar vinculado por estos Términos de Uso, todas las leyes y regulaciones aplicables, y aceptas ser responsable del cumplimiento de todas las leyes locales aplicables.
-          </p>
-          <p>
-            Si no estás de acuerdo con alguno de estos términos, tienes prohibido usar o acceder a este sitio. Los materiales contenidos en este sitio web están protegidos por las leyes de derechos de autor y marcas comerciales aplicables.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>2. Descripción del Servicio</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground space-y-3">
-          <p>
-            Yiyermo Sign Language Translator es una plataforma que proporciona servicios de traducción entre lenguaje de señas y texto, incluyendo:
-          </p>
-          <ul className="list-disc list-inside ml-4 space-y-1">
-            <li>Traducción de texto a lenguaje de señas mediante visualización de señas</li>
-            <li>Traducción de lenguaje de señas a texto mediante reconocimiento visual</li>
-            <li>Deletreo dactilológico interactivo</li>
-            <li>Historial de traducciones personalizadas</li>
-            <li>Herramientas de aprendizaje y práctica</li>
-          </ul>
-          <p className="mt-3">
-            Nos reservamos el derecho de modificar, suspender o descontinuar cualquier aspecto del servicio en cualquier momento sin previo aviso.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>3. Registro y Cuenta de Usuario</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-2">3.1 Creación de Cuenta</h3>
-            <p className="text-muted-foreground">
-              Para utilizar ciertas funciones del servicio, debes crear una cuenta. Al registrarte, te comprometes a:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-2 space-y-1">
-              <li>Proporcionar información precisa, actual y completa</li>
-              <li>Mantener actualizada tu información de registro</li>
-              <li>Mantener la seguridad de tu contraseña</li>
-              <li>Notificarnos inmediatamente sobre cualquier uso no autorizado de tu cuenta</li>
-              <li>Ser responsable de todas las actividades que ocurran bajo tu cuenta</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">3.2 Elegibilidad</h3>
-            <p className="text-muted-foreground">
-              Debes tener al menos 13 años de edad para usar este servicio. Si tienes entre 13 y 18 años, debes tener el permiso de un padre o tutor legal.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">3.3 Seguridad de la Cuenta</h3>
-            <p className="text-muted-foreground">
-              Eres responsable de mantener la confidencialidad de tu contraseña. No compartiremos tu contraseña ni te pediremos que la reveles en comunicaciones no solicitadas.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>4. Uso Aceptable</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-2">4.1 Conducta Permitida</h3>
-            <p className="text-muted-foreground">
-              Puedes usar nuestro servicio para fines legales y de acuerdo con estos términos:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-2 space-y-1">
-              <li>Aprendizaje y práctica de lenguaje de señas</li>
-              <li>Comunicación accesible</li>
-              <li>Educación e investigación académica</li>
-              <li>Uso personal no comercial</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">4.2 Conducta Prohibida</h3>
-            <p className="text-muted-foreground">
-              Al usar nuestro servicio, aceptas NO:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-2 space-y-1">
-              <li>Violar cualquier ley o regulación aplicable</li>
-              <li>Infringir los derechos de propiedad intelectual de otros</li>
-              <li>Transmitir contenido ofensivo, difamatorio o ilegal</li>
-              <li>Utilizar el servicio para acosar, amenazar o intimidar a otros</li>
-              <li>Intentar obtener acceso no autorizado a otros sistemas</li>
-              <li>Interferir con el funcionamiento del servicio</li>
-              <li>Utilizar bots, scrapers o herramientas automatizadas no autorizadas</li>
-              <li>Copiar, modificar o distribuir el contenido del servicio sin permiso</li>
-              <li>Vender, revender o explotar comercialmente el servicio</li>
-              <li>Hacerse pasar por otra persona o entidad</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>5. Propiedad Intelectual</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-2">5.1 Nuestros Derechos</h3>
-            <p className="text-muted-foreground">
-              Todo el contenido del servicio, incluyendo texto, gráficos, logos, iconos, imágenes, clips de audio, descargas digitales, compilaciones de datos y software, es propiedad de Yiyermo Sign Language Translator o de sus proveedores de contenido y está protegido por leyes de derechos de autor.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">5.2 Tu Contenido</h3>
-            <p className="text-muted-foreground">
-              Retienes todos los derechos sobre el contenido que crees o traduzcas. Al usar nuestro servicio, nos otorgas una licencia limitada, no exclusiva, libre de regalías para:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-2 space-y-1">
-              <li>Almacenar tu contenido para proporcionarte el servicio</li>
-              <li>Usar datos agregados y anónimos para mejorar el servicio</li>
-              <li>Generar estadísticas de uso sin identificarte personalmente</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">5.3 Licencia de Uso</h3>
-            <p className="text-muted-foreground">
-              Te otorgamos una licencia limitada, no exclusiva, no transferible y revocable para usar el servicio para fines personales y no comerciales de acuerdo con estos términos.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>6. Privacidad y Protección de Datos</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground space-y-3">
-          <p>
-            Tu privacidad es importante para nosotros. El uso de información personal se rige por nuestra{" "}
-            <Link href="/privacy" className="text-primary hover:underline">
+            Al acceder o utilizar Manos que Hablan, ya sea como usuario registrado o como
+            visitante, aceptas cumplir estos Términos de Uso y nuestra{" "}
+            <Link href="/privacy" className="text-primary underline underline-offset-2">
               Política de Privacidad
             </Link>
-            , que forma parte de estos Términos de Uso.
+            .
           </p>
           <p>
-            Al usar nuestro servicio, consientes la recopilación y uso de información de acuerdo con nuestra Política de Privacidad.
+            Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar
+            la plataforma.
           </p>
         </CardContent>
       </Card>
 
+      {/* 2. NATURALEZA DEL SERVICIO */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>7. Limitación de Responsabilidad</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-2">7.1 Precisión del Servicio</h3>
-            <p className="text-muted-foreground">
-              Aunque nos esforzamos por proporcionar traducciones precisas, el servicio se proporciona "tal cual" y "según disponibilidad". No garantizamos que:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-2 space-y-1">
-              <li>Las traducciones sean 100% precisas o completas</li>
-              <li>El servicio esté disponible de forma ininterrumpida o sin errores</li>
-              <li>Los defectos serán corregidos inmediatamente</li>
-              <li>El servicio sea compatible con todo el hardware y software</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">7.2 Exclusión de Garantías</h3>
-            <p className="text-muted-foreground">
-              En la medida máxima permitida por la ley, renunciamos a todas las garantías, expresas o implícitas, incluyendo garantías de comerciabilidad, idoneidad para un propósito particular y no infracción.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">7.3 Limitación de Daños</h3>
-            <p className="text-muted-foreground">
-              En ningún caso seremos responsables por daños indirectos, incidentales, especiales, consecuentes o punitivos, incluyendo pérdida de beneficios, datos, uso, fondo de comercio u otras pérdidas intangibles.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>8. Indemnización</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground">
-          <p>
-            Aceptas defender, indemnizar y mantener indemne a Yiyermo Sign Language Translator, sus afiliados, licenciantes y proveedores de servicios, y sus respectivos directores, empleados, contratistas, agentes, licenciantes, proveedores, sucesores y cesionarios de y contra cualquier reclamo, responsabilidad, daños, juicios, premios, pérdidas, costos, gastos o tarifas (incluyendo honorarios razonables de abogados) que resulten de o estén relacionados con tu violación de estos Términos de Uso o tu uso del servicio.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>9. Terminación</CardTitle>
+          <CardTitle>2. Naturaleza del servicio</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-muted-foreground">
           <p>
-            Podemos terminar o suspender tu cuenta y acceso al servicio inmediatamente, sin previo aviso ni responsabilidad, por cualquier motivo, incluyendo sin limitación si incumples estos Términos de Uso.
+            Manos que Hablan es un proyecto académico de desarrollo de software orientado a la
+            accesibilidad comunicacional, que ofrece un traductor de Lengua de Señas Chilena
+            (LSCh) en formato web.
           </p>
           <p>
-            También puedes terminar tu cuenta en cualquier momento contactándonos o eliminando tu cuenta desde la configuración de tu perfil.
+            El servicio se proporciona con fines educativos y de apoyo general. No constituye,
+            ni pretende constituir, una herramienta oficial de interpretación profesional,
+            asesoría jurídica, educativa, médica ni de ninguna otra naturaleza especializada.
           </p>
           <p>
-            Al terminar tu cuenta:
+            El uso que realices de las traducciones o resultados es de tu exclusiva
+            responsabilidad.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 3. CREACIÓN Y USO DE CUENTAS */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>3. Cuentas de usuario y credenciales</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            Para acceder a ciertas funcionalidades (como el historial de traducciones), puedes
+            crear una cuenta en Manos que Hablan.
           </p>
           <ul className="list-disc list-inside ml-4 space-y-1">
-            <li>Tu derecho a usar el servicio cesará inmediatamente</li>
-            <li>Podemos eliminar tu información personal después de 30 días</li>
-            <li>Ciertas disposiciones de estos términos sobrevivirán a la terminación</li>
+            <li>
+              Debes proporcionar información veraz y actualizada al registrarte (por ejemplo,
+              tu nombre y correo electrónico).
+            </li>
+            <li>
+              Eres responsable de mantener la confidencialidad de tu contraseña y de todas las
+              actividades realizadas bajo tu cuenta.
+            </li>
+            <li>
+              Debes notificarnos de inmediato si detectas un uso no autorizado de tu cuenta o
+              cualquier incidente de seguridad.
+            </li>
           </ul>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>10. Modificaciones del Servicio y Términos</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground space-y-3">
-          <p>
-            Nos reservamos el derecho de modificar o reemplazar estos términos en cualquier momento. Si una revisión es material, intentaremos proporcionar un aviso de al menos 30 días antes de que los nuevos términos entren en vigencia.
-          </p>
-          <p>
-            Lo que constituye un cambio material se determinará a nuestra sola discreción. Al continuar accediendo o usando nuestro servicio después de que las revisiones entren en vigencia, aceptas estar vinculado por los términos revisados.
+          <p className="text-sm">
+            Manos que Hablan se reserva el derecho de suspender o cancelar cuentas que se
+            utilicen de manera contraria a estos términos o que comprometan la seguridad de la
+            plataforma o de otros usuarios.
           </p>
         </CardContent>
       </Card>
 
+      {/* 4. USO ADECUADO */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>11. Ley Aplicable y Jurisdicción</CardTitle>
+          <CardTitle>4. Uso permitido y responsabilidades del usuario</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground">
-          <p>
-            Estos términos se regirán e interpretarán de acuerdo con las leyes de Chile, sin tener en cuenta sus disposiciones sobre conflictos de leyes. Nuestra falta de ejercicio de cualquier derecho o disposición de estos términos no constituirá una renuncia a ese derecho o disposición.
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>Te comprometes a utilizar Manos que Hablan de manera responsable y respetuosa.</p>
+          <p>No está permitido, entre otros:</p>
+          <ul className="list-disc list-inside ml-4 space-y-1">
+            <li>
+              Utilizar la plataforma para fines ilegales o contrarios a la normativa vigente.
+            </li>
+            <li>
+              Ingresar, compartir o traducir contenido que sea discriminatorio, violento, de
+              odio, abusivo, difamatorio, obsceno o que vulnere derechos de terceros.
+            </li>
+            <li>
+              Intentar acceder sin autorización a sistemas, datos o cuentas de otros usuarios.
+            </li>
+            <li>
+              Introducir código malicioso, virus, bots u otros elementos que puedan afectar el
+              funcionamiento del sitio.
+            </li>
+            <li>
+              Realizar ingeniería inversa, descompilar o intentar extraer el código fuente de
+              la plataforma, salvo que la legislación aplicable lo permita expresamente.
+            </li>
+          </ul>
+          <p className="text-sm">
+            Eres responsable del contenido que ingresas al sistema y del uso que das a los
+            resultados de las traducciones.
           </p>
         </CardContent>
       </Card>
 
+      {/* 5. CONTENIDO Y PROPIEDAD INTELECTUAL */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>12. Resolución de Disputas</CardTitle>
+          <CardTitle>5. Propiedad intelectual y contenido</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground space-y-3">
+        <CardContent className="space-y-3 text-muted-foreground">
           <p>
-            Si tienes alguna disputa con nosotros, primero intenta resolverla informalmente contactándonos. Si no podemos resolver la disputa informalmente, cualquier disputa legal que surja de o relacionada con estos términos se resolverá mediante arbitraje vinculante.
+            El diseño, interfaz, logotipos, nombre del proyecto, código, textos explicativos y
+            demás elementos de Manos que Hablan son propiedad del equipo desarrollador del
+            proyecto y/o de sus colaboradores, o se utilizan bajo las licencias correspondientes.
+          </p>
+          <p>
+            Se te concede una licencia limitada, no exclusiva, personal e intransferible para
+            utilizar la plataforma únicamente con fines personales, educativos o de prueba,
+            conforme a estos Términos de Uso.
+          </p>
+          <p>
+            No se te otorga ningún derecho de titularidad sobre el software ni sobre los
+            contenidos de la plataforma, más allá de lo necesario para su uso normal.
           </p>
         </CardContent>
       </Card>
 
+      {/* 6. DISPONIBILIDAD DEL SERVICIO */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>13. Divisibilidad</CardTitle>
+          <CardTitle>6. Disponibilidad, modificaciones y mantenimiento</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground">
+        <CardContent className="space-y-3 text-muted-foreground">
           <p>
-            Si alguna disposición de estos términos se considera inválida o inaplicable, esa disposición se limitará o eliminará en la medida mínima necesaria, y las disposiciones restantes de estos términos continuarán en pleno vigor y efecto.
+            Manos que Hablan se ofrece “tal cual” y “según disponibilidad”. Al tratarse de un
+            proyecto académico, no garantizamos:
+          </p>
+          <ul className="list-disc list-inside ml-4 space-y-1">
+            <li>Disponibilidad ininterrumpida del servicio.</li>
+            <li>Ausencia total de errores o fallos técnicos.</li>
+            <li>Que el servicio satisfaga todas tus expectativas específicas.</li>
+          </ul>
+          <p>
+            Podremos actualizar, modificar o interrumpir temporal o definitivamente el servicio,
+            en todo o en parte, en cualquier momento y sin necesidad de aviso previo, en
+            particular para realizar mantenimiento, mejoras o cambios académicos/técnicos.
           </p>
         </CardContent>
       </Card>
 
+      {/* 7. LIMITACIÓN DE RESPONSABILIDAD */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>14. Acuerdo Completo</CardTitle>
+          <CardTitle>7. Limitación de responsabilidad</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground">
+        <CardContent className="space-y-3 text-muted-foreground">
           <p>
-            Estos Términos de Uso, junto con nuestra Política de Privacidad, constituyen el acuerdo completo entre tú y Yiyermo Sign Language Translator con respecto al uso del servicio, y reemplazan todos los acuerdos anteriores o contemporáneos entre tú y nosotros.
+            En la medida máxima permitida por la legislación aplicable, Manos que Hablan y las
+            personas involucradas en su desarrollo no serán responsables por:
+          </p>
+          <ul className="list-disc list-inside ml-4 space-y-1">
+            <li>
+              Daños directos o indirectos derivados del uso o imposibilidad de uso de la
+              plataforma.
+            </li>
+            <li>
+              Decisiones o acciones que tomes basadas en los resultados de las traducciones.
+            </li>
+            <li>
+              Pérdida de información, interrupciones del servicio, errores o fallos técnicos.
+            </li>
+          </ul>
+          <p className="text-sm">
+            Al usar Manos que Hablan reconoces que se trata de una herramienta experimental y
+            académica, y que su uso es bajo tu propio riesgo.
           </p>
         </CardContent>
       </Card>
 
+      {/* 8. ENLACES A TERCEROS */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>15. Contacto</CardTitle>
+          <CardTitle>8. Enlaces a otros sitios web</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground">
-          <p className="mb-3">
-            Si tienes preguntas sobre estos Términos de Uso, puedes contactarnos:
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            La plataforma puede incluir enlaces a sitios web de terceros (por ejemplo, recursos
+            educativos o documentación técnica). Manos que Hablan no controla ni es responsable
+            del contenido, políticas o prácticas de dichos sitios externos.
+          </p>
+          <p>
+            Te recomendamos revisar las políticas de privacidad y términos de uso de cualquier
+            sitio de terceros que visites.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 9. TERMINACIÓN */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>9. Suspensión y cancelación de cuentas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            Manos que Hablan se reserva el derecho de suspender o cancelar tu cuenta y/o acceso
+            a la plataforma si:
+          </p>
+          <ul className="list-disc list-inside ml-4 space-y-1">
+            <li>Infringes estos Términos de Uso o la Política de Privacidad.</li>
+            <li>Realizas actividades que pongan en riesgo la seguridad del sistema o de otros usuarios.</li>
+            <li>
+              Utilizas la plataforma con fines ilícitos, abusivos o que vulneren derechos de
+              terceros.
+            </li>
+          </ul>
+          <p className="text-sm">
+            También puedes solicitar en cualquier momento la eliminación de tu cuenta siguiendo
+            las opciones disponibles en la plataforma o escribiendo a{" "}
+            <strong>privacidad@manosquehablan.app</strong>.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 10. PROTECCIÓN DE DATOS */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>10. Protección de datos personales</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            El tratamiento de tus datos personales se regula por nuestra{" "}
+            <Link href="/privacy" className="text-primary underline underline-offset-2">
+              Política de Privacidad
+            </Link>
+            , la cual forma parte integrante de estos Términos de Uso.
+          </p>
+          <p>
+            Al aceptar estos términos, declaras que también has leído y aceptado la Política de
+            Privacidad de Manos que Hablan.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 11. MODIFICACIONES A LOS TÉRMINOS */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>11. Modificaciones de estos Términos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            Manos que Hablan podrá modificar estos Términos de Uso para reflejar cambios en el
+            servicio, ajustes académicos o actualizaciones legales.
+          </p>
+          <p>
+            Las nuevas versiones de los términos se publicarán en esta página, actualizando la
+            fecha de &quot;Última actualización&quot;. El uso continuado del servicio después
+            de la publicación de los cambios implicará la aceptación de los nuevos términos.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 12. LEY APLICABLE */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>12. Ley aplicable</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            En la medida en que la normativa aplicable lo permita, estos Términos de Uso se
+            interpretarán de acuerdo con las leyes vigentes en Chile, sin perjuicio de las
+            normas de protección de consumidores o de protección de datos que resulten
+            imperativas en tu país de residencia.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 13. CONTACTO */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>13. Contacto</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-muted-foreground">
+          <p>
+            Si tienes preguntas, comentarios o sugerencias sobre estos Términos de Uso, puedes
+            escribirnos a:
           </p>
           <ul className="space-y-2">
-            <li><strong>Email:</strong> legal@yiyermo.com</li>
-            <li><strong>Email de soporte:</strong> support@yiyermo.com</li>
+            <li>
+              <strong>Email privacidad:</strong>{" "}
+              <a
+                href="mailto:privacidad@manosquehablan.app"
+                className="text-primary underline underline-offset-2"
+              >
+                privacidad@manosquehablan.app
+              </a>
+            </li>
+            <li>
+              <strong>Email soporte general:</strong>{" "}
+              <a
+                href="mailto:soporte@manosquehablan.app"
+                className="text-primary underline underline-offset-2"
+              >
+                soporte@manosquehablan.app
+              </a>
+            </li>
           </ul>
         </CardContent>
       </Card>
 
       <Separator className="my-8" />
 
-      <div className="text-center text-sm text-muted-foreground space-y-2">
+      <div className="text-center text-sm text-muted-foreground">
         <p>
-          Al utilizar Yiyermo Sign Language Translator, reconoces que has leído, entendido y aceptas estar vinculado por estos Términos de Uso.
-        </p>
-        <p>
-          Consulta también nuestra{" "}
+          Al utilizar Manos que Hablan, declaras haber leído y aceptado estos Términos de Uso y
+          nuestra{" "}
           <Link href="/privacy" className="text-primary hover:underline">
             Política de Privacidad
           </Link>
