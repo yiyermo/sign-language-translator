@@ -76,15 +76,23 @@ export default function AdminDashboardPage() {
           throw usersError;
         }
 
-        // === 3. Sesiones ===
+        // === 3. Sesiones (con join a profiles) ===
         const {
           data: sessionsData,
           error: sessionsError,
         } = await supabase
           .from("usage_sessions")
-          .select(
-            "id, user_id, session_start, session_end, duration_seconds"
-          )
+          .select(`
+            id,
+            user_id,
+            session_start,
+            session_end,
+            duration_seconds,
+            profiles:profiles!usage_sessions_user_id_fkey (
+              full_name,
+              email
+            )
+          `)
           .order("session_start", { ascending: false })
           .limit(20);
 
@@ -96,12 +104,14 @@ export default function AdminDashboardPage() {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
+        // Total de minutos de uso (todas las sesiones cargadas)
         const totalSeconds = (sessionsData ?? []).reduce(
           (acc, s: any) => acc + (s.duration_seconds ?? 0),
           0
         );
         const totalMinutes = Math.round(totalSeconds / 60);
 
+        // Usuarios activos hoy (con al menos una sesión hoy)
         const activeTodayUserIds = new Set<string>();
         (sessionsData ?? []).forEach((s: any) => {
           if (!s.session_start) return;
@@ -111,14 +121,22 @@ export default function AdminDashboardPage() {
           }
         });
 
+        // Marcar usuarios como activos / inactivos
+        const usersWithStatus: UserRow[] = (usersData ?? []).map((u: any) => ({
+          ...u,
+          isActive: activeTodayUserIds.has(u.id),
+        }));
+
+        // Guardar resumen
         setSummary({
           totalUsers: totalUsers ?? 0,
           totalMinutes,
           activeUsersToday: activeTodayUserIds.size,
         });
 
-        setUsers((usersData ?? []) as UserRow[]);
-        setSessions((sessionsData ?? []) as SessionRow[]);
+        // Guardar tablas
+        setUsers(usersWithStatus);
+        setSessions((sessionsData ?? []) as unknown as SessionRow[]);
       } catch (error: any) {
         console.error("Error cargando dashboard:", error);
         setErrorMsg("Ocurrió un error al cargar los datos del panel.");

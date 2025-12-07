@@ -16,6 +16,11 @@ export type SessionRow = {
   session_start: string | null;
   session_end: string | null;
   duration_seconds: number | null;
+  // 👇 datos del perfil asociados por FK (profiles)
+  profiles?: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
 };
 
 type SessionsTableProps = {
@@ -56,29 +61,42 @@ export const SessionsTable: FC<SessionsTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>ID usuario</TableHead>
+            <TableHead>Usuario</TableHead>
             <TableHead>Inicio</TableHead>
             <TableHead>Término</TableHead>
             <TableHead>Duración</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sessions.map((s, idx) => (
-            <TableRow key={s.id ?? `${s.user_id}-${idx}-${s.session_start}`}>
-              <TableCell>{s.user_id ?? "—"}</TableCell>
-              <TableCell>
-                {s.session_start
-                  ? new Date(s.session_start).toLocaleString()
-                  : "—"}
-              </TableCell>
-              <TableCell>
-                {s.session_end
-                  ? new Date(s.session_end).toLocaleString()
-                  : "—"}
-              </TableCell>
-              <TableCell>{formatDuration(s.duration_seconds)}</TableCell>
-            </TableRow>
-          ))}
+          {sessions.map((s, idx) => {
+            const displayName =
+              s.profiles?.full_name?.trim() ||
+              s.profiles?.email ||
+              s.user_id ||
+              "—";
+
+            return (
+              <TableRow
+                key={s.id ?? `${s.user_id}-${idx}-${s.session_start}`}
+              >
+                <TableCell>{displayName}</TableCell>
+
+                <TableCell>
+                  {s.session_start
+                    ? new Date(s.session_start).toLocaleString()
+                    : "—"}
+                </TableCell>
+
+                <TableCell>
+                  {s.session_end
+                    ? new Date(s.session_end).toLocaleString()
+                    : "—"}
+                </TableCell>
+
+                <TableCell>{formatDuration(s.duration_seconds)}</TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
