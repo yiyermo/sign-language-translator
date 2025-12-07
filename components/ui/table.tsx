@@ -8,14 +8,12 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto" data-slot="table-container">
-    <table
-      ref={ref}
-      data-slot="table"
-      className={cn("w-full caption-bottom text-sm", className)}
-      {...props}
-    />
-  </div>
+  <table
+    ref={ref}
+    data-slot="table"
+    className={cn("w-full caption-bottom text-sm", className)}
+    {...props}
+  />
 ));
 Table.displayName = "Table";
 
@@ -61,14 +59,13 @@ const TableFooter = React.forwardRef<
 ));
 TableFooter.displayName = "TableFooter";
 
-// 👇 AQUÍ VA EL CAMBIO IMPORTANTE
 function TableRow({
   className,
   children,
   ...props
 }: React.ComponentProps<"tr">) {
   const filteredChildren = React.Children.toArray(children).filter((child) => {
-    // Si es texto y solo espacios/vacío -> lo ignoramos
+    // Si es texto y solo espacios/vacío -> lo ignoramos (evita warnings de hidratación)
     return !(typeof child === "string" && child.trim() === "");
   });
 
