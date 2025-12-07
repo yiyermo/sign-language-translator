@@ -42,7 +42,7 @@ export default function ProfilePage() {
         setLoading(true);
         setErrorMsg(null);
 
-        // 1. Perfil completo
+        // 1. Perfil completo (INCLUYE avatar_url)
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select(
@@ -62,6 +62,7 @@ export default function ProfilePage() {
         const {
           data: translationsData,
           error: translationsError,
+          count,
         } = await supabase
           .from("translations")
           .select(
@@ -78,12 +79,7 @@ export default function ProfilePage() {
         }
 
         setTranslations((translationsData ?? []) as UserTranslationRow[]);
-        setTotalTranslations(translationsData?.length ?? 0);
-
-        // para el total real, usamos count si existe en el payload
-        // @ts-ignore
-        const totalFromCount = translationsData?.length ?? 0;
-        setTotalTranslations(totalFromCount);
+        setTotalTranslations(count ?? translationsData?.length ?? 0);
 
         // 3. Sesiones de uso (usage_sessions)
         const {
@@ -146,6 +142,8 @@ export default function ProfilePage() {
         subtitle="Tu perfil y actividad en la plataforma"
         userEmail={userEmail}
         userName={profile?.full_name ?? null}
+        // 👇 PASAMOS el avatar al header
+        userAvatarUrl={profileDetails?.avatar_url ?? null}
         onLogout={signOut}
       />
 
@@ -174,7 +172,15 @@ export default function ProfilePage() {
           <>
             {/* Info de perfil y stats */}
             <div className="space-y-4">
-              <ProfileInfoCard profile={profileDetails} />
+              <ProfileInfoCard
+                profile={profileDetails}
+                // 👇 cuando se guarde, actualizamos el estado local
+                onProfileUpdated={(data) =>
+                  setProfileDetails((prev) =>
+                    prev ? { ...prev, ...data } : prev
+                  )
+                }
+              />
               <ProfileStats
                 totalTranslations={totalTranslations}
                 totalMinutes={totalMinutes}
