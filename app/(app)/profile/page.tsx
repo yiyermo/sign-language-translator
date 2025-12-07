@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { supabase } from "@/utils/supabase";
 
-import { AppHeader } from "@/components/layout/AppHeader";
 import { ProfileInfoCard, ProfileDetails } from "@/components/profile/ProfileInfoCard";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import {
@@ -137,16 +136,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AppHeader
-        appLabel="Manos que Hablan · Perfil"
-        subtitle="Tu perfil y actividad en la plataforma"
-        userEmail={userEmail}
-        userName={profile?.full_name ?? null}
-        // 👇 PASAMOS el avatar al header
-        userAvatarUrl={profileDetails?.avatar_url ?? null}
-        onLogout={signOut}
-      />
-
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>

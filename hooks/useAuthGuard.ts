@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
+import { AuthApiError } from "@supabase/supabase-js";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "forbidden";
 
@@ -15,6 +16,7 @@ type Profile = {
   email: string;
   full_name: string | null;
   role: "user" | "admin";
+  avatar_url: string | null;
 };
 
 export function useAuthGuard(options?: UseAuthGuardOptions) {
@@ -43,16 +45,15 @@ export function useAuthGuard(options?: UseAuthGuardOptions) {
         const sessionUser = data.session.user;
         setUserEmail(sessionUser.email ?? null);
 
-        // Traemos el perfil para saber el rol
+        // Traemos el perfil CON avatar_url
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, email, full_name, role")
+          .select("id, email, full_name, role, avatar_url")
           .eq("id", sessionUser.id)
           .single();
 
         if (profileError) {
           console.error("Error obteniendo perfil:", profileError);
-          // si falla el perfil, igual mejor sacar al usuario a login
           setStatus("unauthenticated");
           router.replace("/login");
           return;
@@ -63,14 +64,13 @@ export function useAuthGuard(options?: UseAuthGuardOptions) {
           email: profileData.email,
           full_name: profileData.full_name,
           role: profileData.role,
+          avatar_url: profileData.avatar_url ?? null,
         };
 
         setProfile(typedProfile);
 
-        // Si se requiere rol específico (ej: admin)
         if (options?.requireRole && typedProfile.role !== options.requireRole) {
           setStatus("forbidden");
-          // puedes mandarlo al home público o lo que quieras
           router.replace("/");
           return;
         }
@@ -87,11 +87,30 @@ export function useAuthGuard(options?: UseAuthGuardOptions) {
   }, [router, options?.requireRole]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setStatus("unauthenticated");
-    setProfile(null);
-    setUserEmail(null);
-    router.replace("/login");
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+
+      if (error) {
+        if (
+          error instanceof AuthApiError &&
+          (error.status === 403 ||
+            error.message?.includes("Auth session missing"))
+        ) {
+          console.warn(
+            "signOut: sesión ya no existe en el backend, la ignoramos."
+          );
+        } else {
+          console.error("Error en signOut:", error);
+        }
+      }
+    } catch (err) {
+      console.error("Error inesperado en signOut:", err);
+    } finally {
+      setStatus("unauthenticated");
+      setProfile(null);
+      setUserEmail(null);
+      router.replace("/login");
+    }
   };
 
   return {

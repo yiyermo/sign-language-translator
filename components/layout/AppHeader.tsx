@@ -1,6 +1,6 @@
 "use client";
 
-import { FC } from "react";
+import { FC, useState } from "react";
 import Link from "next/link";
 import { LogOut, User, Shield } from "lucide-react";
 import {
@@ -16,13 +16,11 @@ type AppHeaderProps = {
   userEmail?: string | null;
   userName?: string | null;
   userAvatarUrl?: string | null;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
 
-  // Perfil
   showProfileButton?: boolean;
   onGoToProfile?: () => void;
 
-  // Admin
   showAdminButton?: boolean;
   onGoToAdmin?: () => void;
 };
@@ -40,10 +38,23 @@ export const AppHeader: FC<AppHeaderProps> = ({
   showAdminButton = false,
   onGoToAdmin,
 }) => {
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const initial =
     (userName?.trim().charAt(0).toUpperCase() ??
       userEmail?.trim().charAt(0).toUpperCase() ??
       "U");
+
+  const handleLogoutClick = async () => {
+    if (!onLogout || loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <header
@@ -52,7 +63,7 @@ export const AppHeader: FC<AppHeaderProps> = ({
       aria-label={appLabel}
     >
       <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        {/* Left Content: redirige al inicio */}
+        {/* Left Content: link al inicio */}
         <Link
           href="/"
           className="group inline-flex flex-col gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md px-1 -mx-1"
@@ -141,18 +152,20 @@ export const AppHeader: FC<AppHeaderProps> = ({
             {/* Logout */}
             {onLogout && (
               <button
-                onClick={onLogout}
+                onClick={handleLogoutClick}
                 className="
                   flex items-center gap-1 px-3 py-1.5 rounded-md border 
                   border-red-400 bg-red-500 text-white 
                   hover:bg-red-600 shadow-sm text-xs md:text-sm 
                   transition-all active:scale-95
+                  disabled:opacity-70 disabled:cursor-not-allowed
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400
                 "
                 aria-label="Cerrar sesión de la aplicación"
+                disabled={loggingOut}
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
-                <span>Cerrar sesión</span>
+                <span>{loggingOut ? "Cerrando…" : "Cerrar sesión"}</span>
               </button>
             )}
           </div>

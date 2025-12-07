@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { supabase } from "@/utils/supabase";
 
-import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Card,
@@ -307,15 +306,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AppHeader
-        appLabel="Manos que Hablan · Panel Admin"
-        subtitle="Panel de administración"
-        userEmail={userEmail}
-        userName={profile?.full_name ?? null}
-        onLogout={signOut}
-        showAdminButton={false}
-      />
-
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* Título principal */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

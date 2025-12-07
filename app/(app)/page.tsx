@@ -118,20 +118,6 @@ export default function HomePage() {
         <div className="absolute -top-24 left-10 h-72 w-72 rounded-full bg-indigo-200/40 blur-3xl" />
         <div className="absolute top-32 right-0 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
       </div>
-
-      {/* HEADER GENERAL */}
-      <AppHeader
-        appLabel="Manos que Hablan · Traductor LSCh"
-        subtitle="Lengua de Señas Chilena"
-        userEmail={userEmail}
-        userName={profile?.full_name ?? null}
-        onLogout={signOut}
-        showProfileButton={true}
-        onGoToProfile={handleGoToProfile}
-        showAdminButton={profile?.role === "admin"}
-        onGoToAdmin={handleGoToAdmin}
-      />
-
       {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-6xl lg:max-w-7xl mx-auto px-4 py-8 md:py-10 space-y-8">
         {/* Encabezado de la página */}
