@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 
-// 🔐 Patrones muy débiles que queremos evitar
+// 🔐 Patrones débiles a evitar
 const commonWeakPatterns = [
   "password",
   "123456",
@@ -37,61 +37,47 @@ const commonWeakPatterns = [
   "hola12345",
 ]
 
-// 🔐 Esquema base de contraseña: fuerte y con caracteres especiales
+// 🔐 Esquema de contraseña fuerte
 const passwordSchema = z
   .string()
   .min(12, "La contraseña debe tener al menos 12 caracteres.")
   .max(128, "La contraseña es demasiado larga.")
-  .regex(/[a-z]/, "Debe incluir al menos una letra minúscula (a-z).")
-  .regex(/[A-Z]/, "Debe incluir al menos una letra mayúscula (A-Z).")
-  .regex(/\d/, "Debe incluir al menos un número (0-9).")
-  .regex(
-    /[^A-Za-z0-9]/,
-    "Debe incluir al menos un carácter especial (.,-_!@#$%^&* etc.)."
-  )
-  .regex(/^\S+$/, "No debe contener espacios en blanco.")
+  .regex(/[a-z]/, "Debe incluir al menos una letra minúscula.")
+  .regex(/[A-Z]/, "Debe incluir al menos una letra mayúscula.")
+  .regex(/\d/, "Debe incluir al menos un número.")
+  .regex(/[^A-Za-z0-9]/, "Debe incluir un carácter especial.")
+  .regex(/^\S+$/, "No debe contener espacios.")
 
 const registerSchema = z
   .object({
-    full_name: z
-      .string()
-      .min(3, "El nombre debe tener al menos 3 caracteres.")
-      .max(80, "El nombre es demasiado largo."),
-    email: z
-      .string()
-      .min(1, "El correo es obligatorio.")
-      .email("Ingresa un correo válido."),
+    full_name: z.string().min(3).max(80),
+    email: z.string().email("Ingresa un correo válido."),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Debes confirmar la contraseña."),
     acceptTerms: z
       .boolean()
       .refine((val) => val === true, {
-        message: "Debes aceptar la política de privacidad y términos de uso.",
+        message: "Debes aceptar la política de privacidad y términos.",
       }),
   })
-  // 📌 Contraseñas iguales
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Las contraseñas no coinciden.",
   })
-  // 📌 Validaciones adicionales sobre la contraseña
   .superRefine((data, ctx) => {
     const pass = data.password.toLowerCase()
     const name = data.full_name.toLowerCase()
     const email = data.email.toLowerCase()
     const emailLocal = email.split("@")[0] ?? ""
 
-    // Evitar patrones muy débiles
     if (commonWeakPatterns.some((p) => pass.includes(p))) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["password"],
-        message:
-          "La contraseña es demasiado predecible. Evita secuencias como '123456' o 'hola123'.",
+        message: "La contraseña es demasiado predecible.",
       })
     }
 
-    // Evitar que contenga el nombre o el correo
     const firstName = name.split(" ")[0] ?? ""
     if (firstName && pass.includes(firstName)) {
       ctx.addIssue({
@@ -105,7 +91,7 @@ const registerSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["password"],
-        message: "La contraseña no debe contener tu correo electrónico.",
+        message: "La contraseña no debe contener tu correo.",
       })
     }
   })
@@ -133,59 +119,13 @@ export default function RegisterPage() {
 
   const passwordValue = form.watch("password")
 
-  const onSubmit = async (values: RegisterFormValues) => {
-    setLoading(true)
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-      })
-
-      if (error) throw error
-
-      const user = data.user
-
-      if (user) {
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: user.id,
-          email: values.email,
-          full_name: values.full_name,
-        })
-
-        if (profileError) {
-          console.error(profileError)
-        }
-      }
-
-      toast({
-        title: "Cuenta creada correctamente",
-        description:
-          "Revisa tu correo si la verificación está habilitada en Supabase. Luego podrás iniciar sesión.",
-      })
-
-      router.push("/login")
-    } catch (err: any) {
-      console.error(err)
-      toast({
-        title: "Error al crear la cuenta",
-          description: err?.message ?? "Ocurrió un error inesperado.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 💪 Medidor de fortaleza alineado con las nuevas reglas
+  // ✨ Contraseña fuerte
   const getPasswordStrength = (password: string) => {
     if (!password) return ""
 
     const lower = password.toLowerCase()
-
-    if (commonWeakPatterns.some((pattern) => lower.includes(pattern))) {
+    if (commonWeakPatterns.some((pattern) => lower.includes(pattern)))
       return "Débil"
-    }
 
     const hasLower = /[a-z]/.test(password)
     const hasUpper = /[A-Z]/.test(password)
@@ -200,28 +140,66 @@ export default function RegisterPage() {
     if (password.length >= 14) score++
     if (password.length >= 18) score++
 
-    if (score >= 5 && password.length >= 18) {
-      return "Muy fuerte"
-    }
-    if (score >= 4 && password.length >= 14) {
-      return "Fuerte"
-    }
-    if (score >= 3 && password.length >= 12) {
-      return "Media"
-    }
+    if (score >= 5 && password.length >= 18) return "Muy fuerte"
+    if (score >= 4 && password.length >= 14) return "Fuerte"
+    if (score >= 3 && password.length >= 12) return "Media"
+
     return "Débil"
   }
 
   const strength = getPasswordStrength(passwordValue)
 
+  // 🚀 CORRECCIÓN: signUp con emailRedirectTo
+  const onSubmit = async (values: RegisterFormValues) => {
+    setLoading(true)
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+        },
+      })
+
+      if (error) throw error
+
+      const user = data.user
+
+      if (user) {
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: user.id,
+          email: values.email,
+          full_name: values.full_name,
+        })
+
+        if (profileError) console.error(profileError)
+      }
+
+      toast({
+        title: "Cuenta creada",
+        description: "Revisa tu correo para confirmar tu cuenta.",
+      })
+
+      router.push("/login")
+    } catch (err: any) {
+      console.error(err)
+      toast({
+        title: "Error al crear la cuenta",
+        description: err?.message ?? "Ocurrió un error inesperado.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="space-y-1 text-center">
-        <h2 className="text-2xl font-heading font-bold tracking-tight">
-          Crear cuenta
-        </h2>
+      <div className="text-center space-y-1">
+        <h2 className="text-2xl font-heading font-bold">Crear cuenta</h2>
         <p className="text-sm text-muted-foreground">
-          Regístrate para guardar tu historial de traducciones y futuras estadísticas.
+          Regístrate para guardar tu historial de traducciones.
         </p>
       </div>
 
@@ -235,12 +213,7 @@ export default function RegisterPage() {
               <FormItem>
                 <FormLabel>Nombre completo</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Tu nombre"
-                    autoComplete="name"
-                    className="bg-background"
-                    {...field}
-                  />
+                  <Input placeholder="Tu nombre" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -255,17 +228,8 @@ export default function RegisterPage() {
               <FormItem>
                 <FormLabel>Correo electrónico</FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="tucorreo@ejemplo.com"
-                    autoComplete="email"
-                    className="bg-background"
-                    {...field}
-                  />
+                  <Input type="email" placeholder="tucorreo@ejemplo.com" {...field} />
                 </FormControl>
-                <FormDescription>
-                  Usaremos tu correo solo para tu cuenta del traductor.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -282,28 +246,18 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      className="bg-background pr-8"
                       {...field}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
+                      onClick={() => setShowPassword((p) => !p)}
+                      className="absolute inset-y-0 right-2 flex items-center"
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </FormControl>
-                <FormDescription>
-                  Mínimo 12 caracteres, con mayúsculas, minúsculas, números y al menos
-                  un carácter especial. No puede contener tu nombre ni tu correo.
-                </FormDescription>
+
                 {strength && (
                   <p className="text-xs mt-1">
                     Fortaleza:{" "}
@@ -313,15 +267,14 @@ export default function RegisterPage() {
                           ? "text-red-500"
                           : strength === "Media"
                           ? "text-yellow-500"
-                          : strength === "Fuerte"
-                          ? "text-emerald-500"
-                          : "text-emerald-600"
+                          : "text-emerald-500"
                       }
                     >
                       {strength}
                     </span>
                   </p>
                 )}
+
                 <FormMessage />
               </FormItem>
             )}
@@ -338,17 +291,12 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Input
                       type={showConfirmPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      className="bg-background pr-8"
                       {...field}
                     />
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowConfirmPassword((prev) => !prev)
-                      }
-                      className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
+                      onClick={() => setShowConfirmPassword((p) => !p)}
+                      className="absolute inset-y-0 right-2 flex items-center"
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -363,82 +311,52 @@ export default function RegisterPage() {
             )}
           />
 
-          {/* ACEPTAR TÉRMINOS / PRIVACIDAD */}
+          {/* ACEPTAR TÉRMINOS */}
           <FormField
             control={form.control}
             name="acceptTerms"
             render={({ field }) => (
-              <FormItem
-                className="
-                  space-y-2 rounded-xl 
-                  border border-primary/70 bg-primary/10 
-                  px-4 py-3 shadow-sm
-                "
-              >
+              <FormItem className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <div>
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
 
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked === true)
-                          }
-                          className="mt-0.5 h-4 w-4 border-primary/70 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                        />
-                      </FormControl>
-
-                      <div className="space-y-1 text-sm">
-                        <p className="font-semibold">
-                          Acepto la{" "}
-                          <Link
-                            href="/privacy"
-                            className="text-primary underline underline-offset-2"
-                          >
-                            política de privacidad
-                          </Link>{" "}
-                          y los{" "}
-                          <Link
-                            href="/terms"
-                            className="text-primary underline underline-offset-2"
-                          >
-                            términos de uso
-                          </Link>
-                          .
-                        </p>
-
-                        <p className="text-xs text-muted-foreground">
-                          Manos que Hablan es un proyecto académico. Tus datos se utilizan
-                          solo para tu cuenta y para mejorar la experiencia del traductor.
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
-                      Obligatorio para crear tu cuenta
-                    </span>
+                    <p className="text-sm mt-1">
+                      Acepto la{" "}
+                      <Link
+                        href="/privacy"
+                        className="text-primary underline"
+                      >
+                        política de privacidad
+                      </Link>{" "}
+                      y los{" "}
+                      <Link href="/terms" className="text-primary underline">
+                        términos de uso
+                      </Link>
+                      .
+                    </p>
                   </div>
                 </div>
-
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {/* BOTÓN */}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
             ¿Ya tienes una cuenta?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link href="/login" className="text-primary underline">
               Inicia sesión
             </Link>
           </p>
