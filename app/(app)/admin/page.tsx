@@ -28,6 +28,9 @@ import {
   UsersAnalyticsSummary,
 } from "@/components/admin/AdminAnalyticsPanel";
 
+// ⬇️ IMPORTA EL NUEVO COMPONENTE
+import { DatabaseExportCard } from "@/components/admin/DatabaseExportCard";
+
 type DashboardSummary = {
   totalUsers: number;
   totalMinutes: number;
@@ -35,7 +38,6 @@ type DashboardSummary = {
 };
 
 export default function AdminDashboardPage() {
-  // 🔐 Sólo admins pueden entrar
   const { status, userEmail, profile, signOut } = useAuthGuard({
     requireRole: "admin",
   });
@@ -61,13 +63,11 @@ export default function AdminDashboardPage() {
         setLoading(true);
         setErrorMsg(null);
 
-        // Ventana de 7 días
         const today = new Date();
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 6);
         sevenDaysAgo.setHours(0, 0, 0, 0);
 
-        // === 1. Usuarios totales ===
         const {
           count: totalUsers,
           error: usersCountError,
@@ -80,7 +80,6 @@ export default function AdminDashboardPage() {
           throw usersCountError;
         }
 
-        // === 2. Usuarios recientes ===
         const {
           data: usersData,
           error: usersError,
@@ -95,7 +94,6 @@ export default function AdminDashboardPage() {
           throw usersError;
         }
 
-        // === 3. Sesiones (últimos 7 días, con join a profiles) ===
         const {
           data: sessionsData,
           error: sessionsError,
@@ -120,7 +118,6 @@ export default function AdminDashboardPage() {
           throw sessionsError;
         }
 
-        // === 4. Traducciones (últimos 7 días) ===
         const {
           data: translationsData,
           error: translationsError,
@@ -135,7 +132,6 @@ export default function AdminDashboardPage() {
           throw translationsError;
         }
 
-        // === Cálculo de métricas de sesiones ===
         const totalSeconds = (sessionsData ?? []).reduce(
           (acc, s: any) => acc + (s.duration_seconds ?? 0),
           0
@@ -148,7 +144,6 @@ export default function AdminDashboardPage() {
         const activeTodayUserIds = new Set<string>();
         const activeLast7DaysUserIds = new Set<string>();
 
-        // Mapas por día para uso
         const usageDayMap: Record<
           string,
           {
@@ -176,16 +171,13 @@ export default function AdminDashboardPage() {
           usageDayMap[dayKey].totalSeconds += s.duration_seconds ?? 0;
           usageDayMap[dayKey].activeUsers.add(s.user_id);
 
-          // Activo hoy
           if (start >= todayStart) {
             activeTodayUserIds.add(s.user_id);
           }
 
-          // Activo en los últimos 7 días
           activeLast7DaysUserIds.add(s.user_id);
         });
 
-        // === Cálculo de métricas de traducciones ===
         const translationsDayMap: Record<
           string,
           { total: number; text_to_sign: number; sign_to_text: number }
@@ -212,7 +204,6 @@ export default function AdminDashboardPage() {
           }
         });
 
-        // === Normalizar series diarias (7 días fijos) ===
         const dailyUsageSeries: DailyUsagePoint[] = [];
         const dailyTranslationsSeries: DailyTranslationsPoint[] = [];
 
@@ -254,27 +245,23 @@ export default function AdminDashboardPage() {
           });
         }
 
-        // === Usuarios con estado activo/inactivo (hoy) ===
         const usersWithStatus: UserRow[] = (usersData ?? []).map((u: any) => ({
           ...u,
           isActive: activeTodayUserIds.has(u.id),
         }));
 
-        // === Guardar resumen general ===
         setSummary({
           totalUsers: totalUsers ?? 0,
           totalMinutes,
           activeUsersToday: activeTodayUserIds.size,
         });
 
-        // === Resumen de usuarios para analíticas ===
         setUsersSummary({
           totalUsers: totalUsers ?? 0,
           activeToday: activeTodayUserIds.size,
           activeLast7Days: activeLast7DaysUserIds.size,
         });
 
-        // === Guardar tablas y series ===
         setUsers(usersWithStatus);
         setSessions((sessionsData ?? []) as unknown as SessionRow[]);
         setDailyUsage(dailyUsageSeries);
@@ -290,7 +277,6 @@ export default function AdminDashboardPage() {
     fetchDashboardData();
   }, [status]);
 
-  // Estados de auth
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -300,14 +286,12 @@ export default function AdminDashboardPage() {
   }
 
   if (status === "unauthenticated" || status === "forbidden") {
-    // useAuthGuard ya redirigió
     return null;
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        {/* Título principal */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
@@ -329,14 +313,15 @@ export default function AdminDashboardPage() {
           </Card>
         )}
 
-        {/* Métricas principales en cards simples */}
         <AdminStats
           totalUsers={summary?.totalUsers ?? 0}
           totalMinutes={summary?.totalMinutes ?? 0}
           activeUsersToday={summary?.activeUsersToday ?? 0}
         />
 
-        {/* Panel de analíticas con tarjetas clicables + gráfico */}
+        {/* ⬇️ NUEVA CARD DE EXPORTACIÓN */}
+        <DatabaseExportCard />
+
         <AdminAnalyticsPanel
           dailyTranslations={dailyTranslations}
           dailyUsage={dailyUsage}
@@ -344,14 +329,12 @@ export default function AdminDashboardPage() {
           loading={loading}
         />
 
-        {/* Secciones en tabs: usuarios y sesiones */}
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="sessions">Sesiones de uso</TabsTrigger>
           </TabsList>
 
-          {/* TAB: Usuarios */}
           <TabsContent value="users">
             <Card>
               <CardHeader>
@@ -366,7 +349,6 @@ export default function AdminDashboardPage() {
             </Card>
           </TabsContent>
 
-          {/* TAB: Sesiones */}
           <TabsContent value="sessions">
             <Card>
               <CardHeader>
@@ -376,7 +358,11 @@ export default function AdminDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SessionsTable sessions={sessions} loading={loading} limit={50} />
+                <SessionsTable
+                  sessions={sessions}
+                  loading={loading}
+                  limit={50}
+                />
               </CardContent>
             </Card>
           </TabsContent>
