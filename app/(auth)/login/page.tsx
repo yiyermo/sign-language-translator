@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, KeyRound } from "lucide-react"
 import { supabase } from "@/utils/supabase"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -163,11 +163,31 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+
           {fieldErrors.password && (
             <p id="password-error" className="text-xs text-red-600">
               {fieldErrors.password}
             </p>
           )}
+
+          {/* 👉 Botón mejorado para resetear contraseña */}
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => router.push("/auth/reset-password")}
+              className="
+                inline-flex items-center gap-1 rounded-full border border-indigo-200 
+                bg-indigo-50 px-3 py-1 text-[11px] font-medium text-indigo-700
+                hover:bg-indigo-100 hover:border-indigo-300
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 
+                focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                transition-colors
+              "
+            >
+              <KeyRound className="h-3 w-3" />
+              <span>¿Olvidaste tu contraseña?</span>
+            </button>
+          </div>
         </div>
 
         <Button
@@ -195,7 +215,6 @@ export default function LoginPage() {
             Crear cuenta
           </Button>
 
-          {/* "Placeholder" que aparece al pasar el mouse */}
           <p className="pointer-events-none mt-1 text-[11px] text-muted-foreground text-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             Crea tu cuenta para guardar tu historial de traducciones ✋🤟
           </p>
