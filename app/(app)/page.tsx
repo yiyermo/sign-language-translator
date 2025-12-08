@@ -16,15 +16,13 @@ import TextToSignsSection from "@/components/translator/TextToSignsSection";
 import SignsToTextSection from "@/components/translator/SignsToTextSection";
 import { SaveTranslationButton } from "@/components/translator/SaveTranslationButton";
 
-import { AppHeader } from "@/components/layout/AppHeader";
-
 export default function HomePage() {
   const router = useRouter();
 
-  // 🔐 Protección de la página (requiere usuario autenticado)
-  const { status, userEmail, profile, signOut } = useAuthGuard();
+  // 🔐 Protección de la página
+  const { status, userEmail, profile } = useAuthGuard();
 
-  // Sesión de uso (usage_sessions)
+  // Sesión de uso (pero SIN mostrar el ID en el UI)
   const { sessionId, incrementTranslations } = useUsageSession(profile?.id);
 
   // Estado del traductor
@@ -38,7 +36,7 @@ export default function HomePage() {
     clearTranslation,
   } = useTranslatorState();
 
-  // Logger de traducciones + analytics
+  // Logger de traducciones
   const { isSaving, logTranslation, logEvent } = useTranslationLogger({
     userId: profile?.id,
     incrementSessionTranslations: incrementTranslations,
@@ -47,10 +45,7 @@ export default function HomePage() {
   // Cambiar modo
   const handleModeChange = useCallback(
     (newMode: typeof mode) => {
-      logEvent("mode_changed", {
-        from: mode,
-        to: newMode,
-      });
+      logEvent("mode_changed", { from: mode, to: newMode });
       setMode(newMode);
     },
     [setMode, mode, logEvent]
@@ -60,20 +55,17 @@ export default function HomePage() {
     router.push("/profile");
   }, [router]);
 
-  // Limpiar texto
   const handleClear = useCallback(() => {
     setInputText("");
     setTranslatedText("");
     clearTranslation?.();
   }, [setInputText, setTranslatedText, clearTranslation]);
 
-  // Texto mostrado en ResultsSection
   const shownText = useMemo(
     () => (mode === "signs-to-text" ? translatedText || "" : inputText || ""),
     [mode, translatedText, inputText]
   );
 
-  // Guardar en historial
   const handleSaveTranslation = useCallback(async () => {
     if (!shownText) return;
 
@@ -92,12 +84,6 @@ export default function HomePage() {
     }
   }, [mode, shownText, inputText, translatedText, logTranslation]);
 
-  // Ir al panel admin
-  const handleGoToAdmin = useCallback(() => {
-    router.push("/admin");
-  }, [router]);
-
-  // Estados de carga / sin auth
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -110,19 +96,17 @@ export default function HomePage() {
     return null;
   }
 
-  // ✅ Usuario autenticado
   return (
     <div className="min-h-screen bg-background text-foreground relative">
-      {/* Fondo decorativo sutil */}
+      {/* FONDO */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute -top-24 left-10 h-72 w-72 rounded-full bg-indigo-200/40 blur-3xl" />
         <div className="absolute top-32 right-0 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
       </div>
-      {/* CONTENIDO PRINCIPAL */}
+
+      {/* CONTENIDO */}
       <main className="max-w-6xl lg:max-w-7xl mx-auto px-4 py-8 md:py-10 space-y-8">
-        {/* Encabezado de la página */}
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          {/* IZQUIERDA — TÍTULO + SUBTÍTULO DECORATIVO */}
           <div className="space-y-3">
             <div>
               <h1
@@ -140,28 +124,22 @@ export default function HomePage() {
               </p>
             </div>
 
+            {/* SOLO INFO DEL USUARIO */}
             <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1 rounded-full bg-card/80 border px-3 py-1">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Sesión activa para {profile?.full_name ?? userEmail}
               </span>
-              {sessionId && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-card/60 border px-3 py-1">
-                  ID sesión: <span className="font-mono text-[10px]">{sessionId.slice(0, 10)}…</span>
-                </span>
-              )}
             </div>
           </div>
 
-          {/* DERECHA — TOGGLE DE MODO */}
           <div className="flex justify-start md:justify-end">
             <ModeToggle mode={mode} onChange={handleModeChange} />
           </div>
         </header>
 
-        {/* Layout principal: entrada / salida */}
         <section className="grid md:grid-cols-[1.15fr_0.95fr] gap-6 items-start">
-          {/* Columna izquierda: entrada */}
+          {/* Entrada */}
           <div className="space-y-4">
             <div className="bg-card/80 border rounded-2xl p-4 md:p-5 shadow-sm backdrop-blur-sm">
               {mode === "text-to-signs" ? (
@@ -181,14 +159,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Columna derecha: resultados + barra de estado + guardar */}
+          {/* Resultados */}
           <div className="space-y-4">
             <div className="bg-card/80 border rounded-2xl p-4 md:p-5 shadow-sm backdrop-blur-sm overflow-hidden">
-              <ResultsSection
-                mode={mode}
-                text={shownText}
-                onClear={handleClear}
-              />
+              <ResultsSection mode={mode} text={shownText} onClear={handleClear} />
 
               <div className="mt-3 flex justify-end">
                 <SaveTranslationButton
@@ -204,7 +178,6 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* Modal de instrucciones (se muestra solo la primera vez.) */}
       <Instructions />
     </div>
   );
