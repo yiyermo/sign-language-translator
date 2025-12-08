@@ -4,11 +4,25 @@
 import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { Eye, EyeOff } from "lucide-react";
 
 type FieldErrors = {
   password?: string;
   passwordConfirm?: string;
 };
+
+// 🔐 Patrones débiles a evitar (mismos del register)
+const commonWeakPatterns = [
+  "password",
+  "123456",
+  "12345678",
+  "123456789",
+  "qwerty",
+  "abc123",
+  "hola123",
+  "hola1234",
+  "hola12345",
+];
 
 export default function UpdatePasswordPage() {
   const supabase = createClientComponentClient();
@@ -21,6 +35,13 @@ export default function UpdatePasswordPage() {
     "checking" | "idle" | "loading" | "success" | "error"
   >("checking");
   const [message, setMessage] = useState<string | null>(null);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+
+  // Datos del usuario para validar que la contraseña no contenga su nombre/correo
+  const [userEmail, setUserEmail] = useState("");
+  const [userFullName, setUserFullName] = useState("");
 
   // Verificar que haya una sesión válida desde el link
   useEffect(() => {
@@ -35,38 +56,82 @@ export default function UpdatePasswordPage() {
         return;
       }
 
+      const user = data.user;
+      setUserEmail(user.email ?? "");
+
+      // Intentar leer el nombre desde la tabla profiles (igual que en register)
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profile?.full_name) {
+          setUserFullName(profile.full_name);
+        }
+      } catch {
+        // Si falla, no rompemos nada, solo seguimos sin full_name
+      }
+
       setStatus("idle");
     };
 
     checkSession();
   }, [supabase]);
 
-  // 🔎 Validaciones de contraseña
+  // 🔎 Validaciones de contraseña (alineadas con el passwordSchema del register)
   const validate = () => {
     const errors: FieldErrors = {};
     const pwd = password.trim();
     const pwdConf = passwordConfirm.trim();
 
+    // --- Validación base (igual que passwordSchema) ---
     if (!pwd) {
       errors.password = "La nueva contraseña es obligatoria.";
     } else {
-      if (pwd.length < 8) {
-        errors.password = "La contraseña debe tener al menos 8 caracteres.";
+      if (pwd.length < 12) {
+        errors.password = "La contraseña debe tener al menos 12 caracteres.";
+      } else if (pwd.length > 128) {
+        errors.password = "La contraseña es demasiado larga.";
       } else {
-        // al menos una letra y un número
-        const hasLetter = /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(pwd);
-        const hasNumber = /\d/.test(pwd);
-        if (!hasLetter || !hasNumber) {
-          errors.password =
-            "La contraseña debe incluir al menos una letra y un número.";
+        if (!/[a-z]/.test(pwd)) {
+          errors.password = "Debe incluir al menos una letra minúscula.";
+        } else if (!/[A-Z]/.test(pwd)) {
+          errors.password = "Debe incluir al menos una letra mayúscula.";
+        } else if (!/\d/.test(pwd)) {
+          errors.password = "Debe incluir al menos un número.";
+        } else if (!/[^A-Za-z0-9]/.test(pwd)) {
+          errors.password = "Debe incluir un carácter especial.";
+        } else if (/\s/.test(pwd)) {
+          errors.password = "No debe contener espacios.";
         }
       }
 
-      if (pwd.length > 128) {
-        errors.password = "La contraseña es demasiado larga.";
+      // --- Super validaciones tipo superRefine (solo si no hay error previo) ---
+      const lower = pwd.toLowerCase();
+      if (!errors.password) {
+        if (commonWeakPatterns.some((pattern) => lower.includes(pattern))) {
+          errors.password = "La contraseña es demasiado predecible.";
+        }
+      }
+
+      if (!errors.password && userFullName) {
+        const firstName = userFullName.toLowerCase().split(" ")[0] ?? "";
+        if (firstName && lower.includes(firstName)) {
+          errors.password = "La contraseña no debe contener tu nombre.";
+        }
+      }
+
+      if (!errors.password && userEmail) {
+        const emailLocal = userEmail.toLowerCase().split("@")[0] ?? "";
+        if (emailLocal && lower.includes(emailLocal)) {
+          errors.password = "La contraseña no debe contener tu correo.";
+        }
       }
     }
 
+    // Confirmación
     if (!pwdConf) {
       errors.passwordConfirm = "Debes confirmar la contraseña.";
     } else if (pwd && pwd !== pwdConf) {
@@ -146,32 +211,46 @@ export default function UpdatePasswordPage() {
             >
               Nueva contraseña
             </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (fieldErrors.password) {
-                  setFieldErrors((prev) => ({ ...prev, password: undefined }));
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={12}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                }}
+                className={`
+                  w-full rounded-md border bg-background px-3 py-2 pr-10 text-sm outline-none
+                  ${
+                    fieldErrors.password
+                      ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200"
+                      : "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  }
+                `}
+                placeholder="Mínimo 12 caracteres, letras, números y símbolo"
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={
+                  fieldErrors.password ? "password-error" : undefined
                 }
-              }}
-              className={`
-                w-full rounded-md border bg-background px-3 py-2 text-sm outline-none
-                ${
-                  fieldErrors.password
-                    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200"
-                    : "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                }
-              `}
-              placeholder="Mínimo 8 caracteres, letras y números"
-              aria-invalid={!!fieldErrors.password}
-              aria-describedby={
-                fieldErrors.password ? "password-error" : undefined
-              }
-            />
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {fieldErrors.password && (
               <p
                 id="password-error"
@@ -190,37 +269,57 @@ export default function UpdatePasswordPage() {
             >
               Confirmar contraseña
             </label>
-            <input
-              id="passwordConfirm"
-              type="password"
-              required
-              minLength={8}
-              value={passwordConfirm}
-              onChange={(e) => {
-                setPasswordConfirm(e.target.value);
-                if (fieldErrors.passwordConfirm) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    passwordConfirm: undefined,
-                  }));
-                }
-              }}
-              className={`
-                w-full rounded-md border bg-background px-3 py-2 text-sm outline-none
-                ${
+            <div className="relative">
+              <input
+                id="passwordConfirm"
+                type={showPasswordConfirm ? "text" : "password"}
+                required
+                minLength={12}
+                value={passwordConfirm}
+                onChange={(e) => {
+                  setPasswordConfirm(e.target.value);
+                  if (fieldErrors.passwordConfirm) {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      passwordConfirm: undefined,
+                    }));
+                  }
+                }}
+                className={`
+                  w-full rounded-md border bg-background px-3 py-2 pr-10 text-sm outline-none
+                  ${
+                    fieldErrors.passwordConfirm
+                      ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200"
+                      : "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  }
+                `}
+                placeholder="Repite la contraseña"
+                aria-invalid={!!fieldErrors.passwordConfirm}
+                aria-describedby={
                   fieldErrors.passwordConfirm
-                    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200"
-                    : "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    ? "password-confirm-error"
+                    : undefined
                 }
-              `}
-              placeholder="Repite la contraseña"
-              aria-invalid={!!fieldErrors.passwordConfirm}
-              aria-describedby={
-                fieldErrors.passwordConfirm
-                  ? "password-confirm-error"
-                  : undefined
-              }
-            />
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setShowPasswordConfirm((prev) => !prev)
+                }
+                className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
+                aria-label={
+                  showPasswordConfirm
+                    ? "Ocultar confirmación de contraseña"
+                    : "Mostrar confirmación de contraseña"
+                }
+              >
+                {showPasswordConfirm ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {fieldErrors.passwordConfirm && (
               <p
                 id="password-confirm-error"
