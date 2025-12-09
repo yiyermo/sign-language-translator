@@ -21,17 +21,21 @@ export default function ResultsSection({
 }: ResultsSectionProps) {
   const isTextToSigns = mode === "text-to-signs"
 
+  // 🔵 AHORA ACEPTA LETRAS + NÚMEROS
   const words = useMemo(() => {
     if (!isTextToSigns || !text) return []
-    const matches = text.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g)
+
+    // ACEPTA LETRAS, NÚMEROS Y Ñ
+    const matches = text.match(/[A-Za-zÁÉÍÓÚÜÑ0-9áéíóúüñ]+/g)
     if (!matches) return []
 
     return matches.map((word, index) => {
-      const cleaned = word.trim()
+      const cleaned = word.trim().toUpperCase()
+
       return {
         id: `${cleaned}-${index}`,
         word: cleaned,
-        letters: mapTextToSignLetters(cleaned),
+        letters: mapTextToSignLetters(cleaned), // ← YA DIBUJA SEÑAS DE NÚMEROS
       }
     })
   }, [isTextToSigns, text])
@@ -45,7 +49,6 @@ export default function ResultsSection({
     }
   }
 
-  // tamaño de fuente seguro (no deforma el card)
   const getWordSizeClass = (length: number) => {
     if (length > 40) return "text-[10px] md:text-xs"
     if (length > 25) return "text-xs md:text-sm"
@@ -65,16 +68,14 @@ export default function ResultsSection({
         {isTextToSigns ? (
           <>
             <p className="text-sm text-muted-foreground">
-              Deletreo en señas ({words.length} palabra
-              {words.length === 1 ? "" : "s"}):
+              Deletreo en señas ({words.length} palabra{words.length === 1 ? "" : "s"}):
             </p>
 
-            {/* CONTENEDOR PRINCIPAL: solo scroll vertical */}
             <div className="border rounded-lg bg-muted/40 p-3 max-h-96 overflow-y-auto space-y-3">
               {words.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Escribe texto en el panel de la izquierda para ver aquí la
-                  traducción en señas, palabra por palabra.
+                  traducción en señas, letra por letra.
                 </p>
               ) : (
                 words.map((w) => {
@@ -85,13 +86,8 @@ export default function ResultsSection({
                       key={w.id}
                       className="flex flex-col gap-2 rounded-md bg-background/60 px-2 py-2 border"
                     >
-                      {/* 🔵 FILA CON SCROLL HORIZONTAL INTERNO */}
                       <div className="relative w-full max-w-full overflow-x-auto">
-                        {/* Este div puede ser más ancho que el card, 
-                            pero el overflow queda contenido aquí */}
                         <div className="inline-flex items-center gap-3">
-
-                          {/* Letras en una sola fila */}
                           <div className="flex items-center gap-2">
                             {w.letters.map((letter) => (
                               <div
@@ -101,6 +97,8 @@ export default function ResultsSection({
                                 <span className="text-[10px] font-medium">
                                   {letter.char}
                                 </span>
+
+                                {/* 🔥 AHORA SOPORTA NÚMEROS AUTOMÁTICAMENTE */}
                                 <Image
                                   src={letter.imageSrc}
                                   alt={`Seña de ${letter.char}`}
@@ -120,9 +118,6 @@ export default function ResultsSection({
             </div>
           </>
         ) : (
-          // =======================
-          // MODO SEÑAS → TEXTO
-          // =======================
           <div className="flex flex-col gap-2 flex-1">
             <p className="text-sm text-muted-foreground">Texto resultante:</p>
 
@@ -134,16 +129,13 @@ export default function ResultsSection({
                 </>
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  Aquí aparecerá el texto que construyas con el deletreo en
-                  señas. El cursor indica dónde se agregan nuevas letras y
-                  espacios.
+                  Aquí aparecerá el texto que construyas con el deletreo en señas.
                 </span>
               )}
             </div>
           </div>
         )}
 
-        {/* Botones inferiores */}
         <div className="mt-auto flex flex-wrap gap-2 pt-2 border-t">
           <Button
             type="button"
